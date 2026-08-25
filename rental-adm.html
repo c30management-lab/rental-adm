@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>RENTAL ADM</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F0EDE6;
+    --surface: #FFFFFF;
+    --navy: #1B2B3A;
+    --navy2: #2E4559;
+    --green: #3D7A5B;
+    --green-lt: #EAF3EE;
+    --red: #B83228;
+    --red-lt: #FCECEA;
+    --amber: #B8820A;
+    --amber-lt: #FEF5E0;
+    --border: #D8D0C6;
+    --muted: #7A7268;
+    --radius: 10px;
+    --shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  body { background: var(--bg); font-family: 'Inter', system-ui, -apple-system, sans-serif; color: var(--navy); min-height: 100vh; font-size: 15px; }
+
+  /* ── Header ── */
+  #header { background: var(--navy); color: #fff; padding: 0 20px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  #header-inner { max-width: 900px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  #logo { font-weight: 900; font-size: 15px; letter-spacing: 2px; padding: 16px 0; color: #fff; flex-shrink: 0; }
+  #nav { display: flex; gap: 2px; flex: 1; }
+  .nav-btn { background: transparent; border: none; color: rgba(255,255,255,.55); cursor: pointer; padding: 18px 14px; font-weight: 600; font-size: 13px; border-bottom: 2px solid transparent; transition: all .15s; white-space: nowrap; }
+  .nav-btn.active { color: #fff; border-bottom-color: #fff; }
+  #auth-area { display: flex; align-items: center; gap: 10px; padding: 10px 0; margin-left: auto; }
+  #sync-status { font-size: 12px; color: rgba(255,255,255,.6); }
+  #sync-btn { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  #user-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); }
+
+  /* ── Layout ── */
+  #content { max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
+  .card-title { font-weight: 700; font-size: 14px; color: var(--navy); margin-bottom: 14px; }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .gap { display: grid; gap: 16px; }
+  @media (max-width: 600px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .nav-btn { padding: 14px 10px; font-size: 12px; }
+  }
+
+  /* ── KPI ── */
+  .kpi { text-align: left; }
+  .kpi-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .kpi-value { font-size: 26px; font-weight: 900; font-family: 'Courier New', monospace; }
+
+  /* ── Badges ── */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: .3px; }
+  .badge-green { background: var(--green-lt); color: var(--green); }
+  .badge-red { background: var(--red-lt); color: var(--red); }
+  .badge-amber { background: var(--amber-lt); color: var(--amber); }
+  .badge-navy { background: #E6ECF1; color: var(--navy); }
+
+  /* ── Buttons ── */
+  .btn { border: none; border-radius: 7px; cursor: pointer; font-weight: 700; font-size: 14px; padding: 10px 20px; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--navy); color: #fff; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--navy); border: 1px solid var(--border); }
+  .btn-sm { font-size: 12px; padding: 6px 14px; border-radius: 6px; }
+
+  /* ── Forms ── */
+  .form-group { display: grid; gap: 5px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .form-input { padding: 9px 12px; border: 1px solid var(--border); border-radius: 7px; font-size: 14px; width: 100%; outline: none; transition: border-color .15s; }
+  .form-input:focus { border-color: var(--navy); }
+  select.form-input { background: #fff; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 700; border-bottom: 2px solid var(--border); text-transform: uppercase; letter-spacing: .5px; }
+  td { padding: 10px 10px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+
+  /* ── Contrato card ── */
+  .contrato-card { cursor: pointer; transition: box-shadow .15s; }
+  .contrato-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+  .contrato-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .contrato-name { font-weight: 700; font-size: 16px; }
+  .contrato-prop { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .contrato-badges { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .contrato-canon { text-align: right; flex-shrink: 0; }
+  .canon-label { font-size: 11px; color: var(--muted); }
+  .canon-value { font-size: 22px; font-weight: 900; color: var(--green); font-family: 'Courier New', monospace; }
+
+  /* ── Alerts ── */
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; }
+  .alert-amber { background: var(--amber-lt); color: var(--amber); border: 1px solid #F0D080; }
+  .alert-red { background: var(--red-lt); color: var(--red); border: 1px solid #EAACAA; }
+  .alert-green { background: var(--green-lt); color: var(--green); border: 1px solid #AACFBA; }
+
+  /* ── Misc ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+  .mono { font-family: 'Courier New', monospace; font-weight: 700; }
+  .muted { color: var(--muted); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .row-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .row-item:last-child { border-bottom: none; }
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .section-title { font-size: 17px; font-weight: 800; color: var(--navy); }
+
+  /* ── Login screen ── */
+  #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; gap: 24px; text-align: center; padding: 20px; }
+  #login-screen h1 { font-size: 28px; font-weight: 900; letter-spacing: 3px; }
+  #login-screen p { color: var(--muted); max-width: 340px; }
+  #client-id-input { width: 100%; max-width: 400px; padding: 12px 16px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px; font-family: monospace; }
+
+  /* ── Ajuste box ── */
+  .ajuste-box { background: var(--amber-lt); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+  .ajuste-desde { font-weight: 700; font-size: 14px; }
+  .ajuste-pct { font-size: 12px; color: var(--muted); }
+  .ajuste-canon { font-size: 18px; font-weight: 900; color: var(--amber); font-family: 'Courier New', monospace; }
+
+  /* ── Toast ── */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 10px 20px; border-radius: 30px; font-size: 13px; font-weight: 600; z-index: 999; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #toast.show { opacity: 1; }
+
+  /* ── Modal ── */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .modal-title { font-size: 16px; font-weight: 800; margin-bottom: 18px; }
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Header -->
+<div id="header">
+  <div id="header-inner">
+    <div id="logo">🏠 RENTAL ADM</div>
+    <div id="nav">
+      <button class="nav-btn active" onclick="showView('dashboard')">Dashboard</button>
+      <button class="nav-btn" onclick="showView('contratos')">Contratos</button>
+      <button class="nav-btn" onclick="showView('calculadora')">IPC</button>
+    </div>
+    <div id="auth-area">
+      <span id="sync-status">No conectado</span>
+      <button id="sync-btn" onclick="handleAuth()">Conectar Drive</button>
+    </div>
+  </div>
+</div>
+
+<!-- Login / Client ID setup -->
+<div id="setup-screen" style="display:none">
+  <div id="login-screen">
+    <h1>RENTAL ADM</h1>
+    <p>Para sincronizar datos entre dispositivos, ingresá tu Google Client ID del proyecto <strong>RENTAL ADM</strong>.</p>
+    <input id="client-id-input" class="form-input" placeholder="xxxx.apps.googleusercontent.com" />
+    <button class="btn btn-primary" onclick="saveClientId()">Guardar y conectar</button>
+    <button class="btn btn-ghost btn-sm" onclick="skipSetup()">Usar sin Drive (solo este dispositivo)</button>
+    <details style="max-width:400px; text-align:left; font-size:12px; color:var(--muted)">
+      <summary style="cursor:pointer; font-weight:600; margin-bottom:6px">¿Cómo obtengo el Client ID?</summary>
+      <ol style="padding-left:16px; line-height:2">
+        <li>Ir a <strong>console.cloud.google.com</strong></li>
+        <li>Seleccionar proyecto <strong>RENTAL ADM</strong></li>
+        <li>APIs y servicios → Credenciales</li>
+        <li>Crear credencial → ID de cliente OAuth 2.0</li>
+        <li>Tipo: <strong>Aplicación web</strong></li>
+        <li>Orígenes: agregar <code>null</code> (para archivos locales)</li>
+        <li>Copiar el Client ID generado</li>
+      </ol>
+    </details>
+  </div>
+</div>
+
+<!-- Main content -->
+<div id="content">
+  <!-- DASHBOARD -->
+  <div id="view-dashboard" class="view active">
+    <div class="gap">
+      <div class="grid-4" id="kpi-grid"></div>
+      <div class="grid-2">
+        <div class="card" id="pendientes-card"></div>
+        <div class="card" id="vencimientos-card"></div>
+      </div>
+      <div class="card" id="ajustes-card"></div>
+    </div>
+  </div>
+
+  <!-- CONTRATOS -->
+  <div id="view-contratos" class="view">
+    <div class="gap">
+      <div class="section-header">
+        <div class="section-title">Contratos</div>
+        <button class="btn btn-primary btn-sm" onclick="openModalContrato()">+ Nuevo contrato</button>
+      </div>
+      <div id="contratos-list" class="gap"></div>
+    </div>
+  </div>
+
+  <!-- DETALLE -->
+  <div id="view-detalle" class="view">
+    <div class="gap">
+      <div class="row">
+        <button class="btn btn-ghost btn-sm" onclick="showView('contratos')">← Volver</button>
+        <div id="detalle-title" class="section-title"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card" id="detalle-info"></div>
+        <div class="card" id="detalle-ajustes"></div>
+      </div>
+      <div class="grid-3" id="detalle-kpis"></div>
+      <div class="card" id="detalle-pagos"></div>
+    </div>
+  </div>
+
+  <!-- CALCULADORA IPC -->
+  <div id="view-calculadora" class="view">
+    <div style="max-width:480px">
+      <div class="section-title" style="margin-bottom:16px">Calculadora de ajuste IPC</div>
+      <div class="card gap">
+        <div class="form-group">
+          <label class="form-label">Canon base ($)</label>
+          <input id="calc-canon" type="number" class="form-input" placeholder="1200000">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Desde</label>
+            <input id="calc-desde" type="month" class="form-input" value="2026-01">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hasta</label>
+            <input id="calc-hasta" type="month" class="form-input" value="2026-04">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="calcularIPC()">Calcular ajuste</button>
+        <div id="calc-resultado" style="display:none" class="ajuste-box">
+          <div class="ajuste-pct">IPC acumulado: <span id="calc-pct"></span></div>
+          <div style="margin-top:8px; font-size:12px; color:var(--muted)">Nuevo canon</div>
+          <div class="ajuste-canon" id="calc-nuevo"></div>
+        </div>
+        <hr class="divider">
+        <div class="card-title">IPC INDEC cargados</div>
+        <div id="ipc-tabla" style="display:flex; flex-wrap:wrap; gap:8px"></div>
+        <div style="font-size:11px; color:var(--muted)">* Actualizá los valores mensualmente al publicar INDEC.</div>
+        <button class="btn btn-ghost btn-sm" onclick="openModalIPC()">+ Cargar nuevo IPC</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nuevo contrato -->
+<div id="modal-contrato" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">Nuevo contrato</div>
+    <div class="gap">
+      <div class="form-group"><label class="form-label">Inquilino</label><input id="f-inquilino" class="form-input" placeholder="Nombre completo"></div>
+      <div class="form-group"><label class="form-label">Propiedad</label><input id="f-propiedad" class="form-input" placeholder="Dirección"></div>
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label">Inicio</label><input id="f-inicio" type="date" class="form-input"></div>
+        <div class="form-group"><label class="form-label">Vencimiento</label><input id="f-fin" type="date" class="form-input"></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label">Canon inicial ($)</label><input id="f-canon" type="number" class="form-input" placeholder="1200000"></div>
+        <div class="form-group"><label class="form-label">Ajuste</label>
+          <select id="f-ajuste" class="form-input">
+            <option value="3">Trimestral IPC</option>
+            <option value="4">Cuatrimestral IPC</option>
+            <option value="6">Semestral IPC</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-contrato')">Cancelar</button>
+        <button class="btn btn-green" onclick="guardarContrato()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Registrar pago -->
+<div id="modal-pago" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">Registrar pago</div>
+    <div class="gap">
+      <div class="form-group"><label class="form-label">Mes</label><input id="p-mes" type="month" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Monto ($)</label><input id="p-monto" type="number" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Fecha de pago</label><input id="p-fecha" type="date" class="form-input"></div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-pago')">Cancelar</button>
+        <button class="btn btn-green" onclick="guardarPago()">Registrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cargar IPC -->
+<div id="modal-ipc" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">Cargar IPC mensual</div>
+    <div class="gap">
+      <div class="form-group"><label class="form-label">Mes</label><input id="ipc-mes" type="month" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Variación % (ej: 3.4)</label><input id="ipc-val" type="number" step="0.01" class="form-input" placeholder="3.4"></div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-ipc')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarIPC()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+let STATE = {
+  contratos: [],
+  ipc: {
+    "2026-01": 2.9,
+    "2026-02": 2.9,
+    "2026-03": 3.4,
+    "2026-04": 2.8,
+  }
+};
+let contratoActualId = null;
+let driveFileId = null;
+let tokenClient = null;
+let accessToken = null;
+const DRIVE_FILENAME = "rental-adm-data.json";
+
+// ══════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════
+function fmt(n) {
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+}
+function fmtFecha(s) {
+  if (!s) return "—";
+  const [y, m, d] = s.split("-");
+  return `${d}/${m}/${y}`;
+}
+function mesLabel(s) {
+  if (!s) return "—";
+  const [y, m] = s.split("-");
+  const n = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  return `${n[parseInt(m)-1]} ${y}`;
+}
+function diasParaVencer(fin) {
+  return Math.ceil((new Date(fin) - new Date()) / 86400000);
+}
+function canonActual(c) {
+  return c.ajustes?.at(-1)?.canon ?? c.canonInicial;
+}
+function proximoAjusteMes(c) {
+  const base = c.ajustes?.at(-1)?.desde ?? c.inicio.slice(0,7);
+  const [y, m] = base.split("-").map(Number);
+  const meses = parseInt(c.ajusteMeses ?? 3);
+  const d = new Date(y, m - 1 + meses, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+}
+function calcIpcAcumulado(desde, hasta) {
+  let acc = 1, [y, m] = desde.split("-").map(Number);
+  const [hy, hm] = hasta.split("-").map(Number);
+  while (y < hy || (y === hy && m <= hm)) {
+    const k = `${y}-${String(m).padStart(2,"0")}`;
+    if (STATE.ipc[k]) acc *= (1 + STATE.ipc[k] / 100);
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return acc - 1;
+}
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2500);
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+// ══════════════════════════════════════════════════════════════
+// GOOGLE DRIVE SYNC
+// ══════════════════════════════════════════════════════════════
+function getClientId() { return localStorage.getItem("rental_client_id") || ""; }
+function saveClientId() {
+  const v = document.getElementById("client-id-input").value.trim();
+  if (!v) return;
+  localStorage.setItem("rental_client_id", v);
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("content").style.display = "block";
+  initGoogleAuth();
+}
+function skipSetup() {
+  localStorage.setItem("rental_client_id", "offline");
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("content").style.display = "block";
+  loadLocalData();
+  renderAll();
+}
+
+function initGoogleAuth() {
+  const cid = getClientId();
+  if (!cid || cid === "offline") { loadLocalData(); renderAll(); return; }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: cid,
+    scope: "https://www.googleapis.com/auth/drive.appdata",
+    callback: async (resp) => {
+      if (resp.error) { toast("Error de autenticación"); return; }
+      accessToken = resp.access_token;
+      document.getElementById("sync-status").textContent = "Drive conectado ✓";
+      document.getElementById("sync-btn").textContent = "Sincronizar";
+      await loadFromDrive();
+      renderAll();
+    }
+  });
+}
+
+function handleAuth() {
+  const cid = getClientId();
+  if (!cid || cid === "offline") {
+    document.getElementById("setup-screen").style.display = "block";
+    document.getElementById("content").style.display = "none";
+    return;
+  }
+  if (!tokenClient) { initGoogleAuth(); }
+  tokenClient.requestAccessToken({ prompt: accessToken ? "" : "consent" });
+}
+
+async function loadFromDrive() {
+  try {
+    // buscar archivo
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${DRIVE_FILENAME}'&fields=files(id,name)`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const data = await r.json();
+    if (data.files?.length > 0) {
+      driveFileId = data.files[0].id;
+      const r2 = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      STATE = await r2.json();
+      toast("Datos cargados desde Drive ✓");
+    } else {
+      loadLocalData();
+      await saveToDrive();
+    }
+  } catch(e) { loadLocalData(); toast("Error al leer Drive, usando datos locales"); }
+}
+
+async function saveToDrive() {
+  if (!accessToken) { saveLocal(); return; }
+  saveLocal();
+  try {
+    const blob = new Blob([JSON.stringify(STATE)], { type: "application/json" });
+    const meta = { name: DRIVE_FILENAME, parents: ["appDataFolder"] };
+    let url, method;
+    if (driveFileId) {
+      url = `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=multipart`;
+      method = "PATCH";
+    } else {
+      url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
+      method = "POST";
+    }
+    const form = new FormData();
+    form.append("metadata", new Blob([JSON.stringify(driveFileId ? {} : meta)], { type: "application/json" }));
+    form.append("file", blob);
+    const r = await fetch(url, { method, headers: { Authorization: `Bearer ${accessToken}` }, body: form });
+    const d = await r.json();
+    if (!driveFileId) driveFileId = d.id;
+    toast("Guardado en Drive ✓");
+  } catch(e) { toast("Error al guardar en Drive"); }
+}
+
+function saveLocal() { localStorage.setItem("rental_state", JSON.stringify(STATE)); }
+function loadLocalData() {
+  const s = localStorage.getItem("rental_state");
+  if (s) { try { STATE = JSON.parse(s); } catch(e) {} }
+}
+function save() { saveToDrive(); }
+
+// ══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════
+function showView(id) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById(`view-${id}`).classList.add("active");
+  const map = { dashboard: 0, contratos: 1, calculadora: 2 };
+  if (map[id] !== undefined) document.querySelectorAll(".nav-btn")[map[id]].classList.add("active");
+  if (id === "dashboard") renderDashboard();
+  if (id === "contratos") renderContratos();
+  if (id === "calculadora") renderIpcTabla();
+  if (id === "detalle") renderDetalle();
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER: DASHBOARD
+// ══════════════════════════════════════════════════════════════
+function renderDashboard() {
+  const cs = STATE.contratos;
+  const totalMensual = cs.reduce((s, c) => s + canonActual(c), 0);
+  const pendientes = cs.flatMap(c => (c.pagos||[]).filter(p => !p.pagado).map(p => ({...p, inquilino: c.inquilino, cid: c.id})));
+  const proxVencer = cs.map(c => ({...c, dias: diasParaVencer(c.fin)})).filter(c => c.dias < 180).sort((a,b) => a.dias - b.dias);
+
+  document.getElementById("kpi-grid").innerHTML = [
+    { label: "Contratos activos", value: cs.length, color: "var(--navy)" },
+    { label: "Ingresos mensuales", value: fmt(totalMensual), color: "var(--green)" },
+    { label: "Cuotas pendientes", value: pendientes.length, color: pendientes.length > 0 ? "var(--red)" : "var(--green)" },
+    { label: "Por vencer <6 meses", value: proxVencer.length, color: proxVencer.length > 0 ? "var(--amber)" : "var(--green)" },
+  ].map(k => `<div class="card kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.value}</div></div>`).join("");
+
+  document.getElementById("pendientes-card").innerHTML = `
+    <div class="card-title">⚠ Cuotas pendientes</div>
+    ${pendientes.length === 0
+      ? `<div class="alert alert-green">Todo al día ✓</div>`
+      : pendientes.map(p => `
+        <div class="row-item">
+          <div><div style="font-weight:600">${p.inquilino}</div><div class="muted" style="font-size:12px">${mesLabel(p.mes)}</div></div>
+          <div class="mono" style="color:var(--red)">${fmt(p.monto)}</div>
+        </div>`).join("")}`;
+
+  document.getElementById("vencimientos-card").innerHTML = `
+    <div class="card-title">📅 Vencimientos próximos</div>
+    ${proxVencer.length === 0
+      ? `<div class="alert alert-green">Sin vencimientos en 6 meses</div>`
+      : proxVencer.map(c => `
+        <div class="row-item" onclick="abrirDetalle('${c.id}')" style="cursor:pointer">
+          <div>
+            <div style="font-weight:600">${c.inquilino}</div>
+            <div class="muted" style="font-size:12px">${fmtFecha(c.fin)}</div>
+          </div>
+          <span class="badge ${c.dias < 60 ? 'badge-red' : 'badge-amber'}">${c.dias}d</span>
+        </div>`).join("")}`;
+
+  document.getElementById("ajustes-card").innerHTML = `
+    <div class="card-title">📈 Próximos ajustes IPC</div>
+    <div class="grid-2">
+      ${cs.map(c => {
+        const prox = proximoAjusteMes(c);
+        return `<div class="ajuste-box">
+          <div class="ajuste-desde">${c.inquilino}</div>
+          <div class="ajuste-pct">Próximo: ${mesLabel(prox)}</div>
+          <div class="ajuste-canon">${fmt(canonActual(c))}</div>
+        </div>`;
+      }).join("") || '<div class="muted">Sin contratos</div>'}
+    </div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER: CONTRATOS
+// ══════════════════════════════════════════════════════════════
+function renderContratos() {
+  const cs = STATE.contratos;
+  document.getElementById("contratos-list").innerHTML = cs.length === 0
+    ? `<div class="card" style="text-align:center;color:var(--muted);padding:40px">No hay contratos. Agregá el primero.</div>`
+    : cs.map(c => {
+        const dias = diasParaVencer(c.fin);
+        const pend = (c.pagos||[]).filter(p => !p.pagado).length;
+        return `
+        <div class="card contrato-card" onclick="abrirDetalle('${c.id}')">
+          <div class="contrato-header">
+            <div>
+              <div class="contrato-name">${c.inquilino}</div>
+              <div class="contrato-prop">${c.propiedad}</div>
+              <div class="contrato-badges">
+                <span class="badge ${dias < 90 ? 'badge-red' : dias < 180 ? 'badge-amber' : 'badge-green'}">Vence ${fmtFecha(c.fin)}</span>
+                ${pend > 0 ? `<span class="badge badge-red">${pend} cuota${pend>1?'s':''} pendiente${pend>1?'s':''}</span>` : ''}
+                <span class="badge badge-navy">${c.ajusteMeses === "6" ? "Sem." : c.ajusteMeses === "4" ? "Cuatrim." : "Trim."} IPC</span>
+              </div>
+            </div>
+            <div class="contrato-canon">
+              <div class="canon-label">Canon actual</div>
+              <div class="canon-value">${fmt(canonActual(c))}</div>
+              <div class="muted" style="font-size:11px">/mes</div>
+            </div>
+          </div>
+        </div>`;
+      }).join("");
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER: DETALLE
+// ══════════════════════════════════════════════════════════════
+function abrirDetalle(id) {
+  contratoActualId = id;
+  showView("detalle");
+}
+
+function renderDetalle() {
+  const c = STATE.contratos.find(x => x.id === contratoActualId);
+  if (!c) return;
+  document.getElementById("detalle-title").textContent = c.inquilino;
+
+  const ca = canonActual(c);
+  const prox = proximoAjusteMes(c);
+  const dias = diasParaVencer(c.fin);
+
+  document.getElementById("detalle-info").innerHTML = `
+    <div class="card-title">Datos del contrato</div>
+    ${[
+      ["Propiedad", c.propiedad],
+      ["Inicio", fmtFecha(c.inicio)],
+      ["Vencimiento", fmtFecha(c.fin)],
+      ["Días restantes", `${dias} días`],
+      ["Canon inicial", fmt(c.canonInicial)],
+      ["Canon actual", `<span class="mono" style="color:var(--green)">${fmt(ca)}</span>`],
+      ["Depósito", fmt(c.deposito ?? c.canonInicial)],
+      ["Ajuste", `${c.ajusteMeses === "6" ? "Semestral" : c.ajusteMeses === "4" ? "Cuatrimestral" : "Trimestral"} IPC`],
+    ].map(([k,v]) => `<div class="row-item"><span class="muted">${k}</span><span style="font-weight:600;text-align:right;max-width:58%">${v}</span></div>`).join("")}
+  `;
+
+  document.getElementById("detalle-ajustes").innerHTML = `
+    <div class="card-title">Ajustes IPC aplicados</div>
+    ${(c.ajustes||[]).map(a => `
+      <div class="ajuste-box">
+        <div class="ajuste-desde">Desde ${mesLabel(a.desde)}</div>
+        <div class="ajuste-pct">IPC acum.: +${a.porcentaje}%</div>
+        <div class="ajuste-canon">${fmt(a.canon)}</div>
+      </div>`).join("") || '<div class="muted" style="font-size:13px">Sin ajustes aún</div>'}
+    <div style="margin-top:12px;background:#F0F4F8;border-radius:8px;padding:12px;font-size:13px">
+      <div class="muted">Próximo ajuste estimado</div>
+      <div style="font-weight:700">${mesLabel(prox)}</div>
+    </div>
+    <button class="btn btn-green btn-sm" style="margin-top:12px" onclick="aplicarAjuste('${c.id}')">Calcular y aplicar</button>
+  `;
+
+  const totalCobrado = (c.pagos||[]).filter(p => p.pagado).reduce((s,p) => s+p.monto, 0);
+  const totalPend = (c.pagos||[]).filter(p => !p.pagado).reduce((s,p) => s+p.monto, 0);
+  document.getElementById("detalle-kpis").innerHTML = [
+    { label: "Total cobrado", value: fmt(totalCobrado), color: "var(--green)" },
+    { label: "Pendiente", value: fmt(totalPend), color: "var(--red)" },
+    { label: "Cuotas registradas", value: (c.pagos||[]).length, color: "var(--navy)" },
+  ].map(k => `<div class="card kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.value}</div></div>`).join("");
+
+  document.getElementById("detalle-pagos").innerHTML = `
+    <div class="row" style="margin-bottom:14px">
+      <div class="card-title" style="margin:0">Historial de pagos</div>
+      <button class="btn btn-sm btn-primary" onclick="openModalPago('${c.id}')">+ Registrar pago</button>
+    </div>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Mes</th><th>Monto</th><th>Fecha</th><th>Estado</th></tr></thead>
+      <tbody>
+        ${[...(c.pagos||[])].reverse().map(p => `
+          <tr>
+            <td style="font-weight:600">${mesLabel(p.mes)}</td>
+            <td class="mono">${fmt(p.monto)}</td>
+            <td class="muted">${fmtFecha(p.fecha)}</td>
+            <td><span class="badge ${p.pagado ? 'badge-green' : 'badge-red'}">${p.pagado ? 'Cobrado' : 'Pendiente'}</span></td>
+          </tr>`).join("")}
+      </tbody>
+    </table>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════
+// ACCIONES
+// ══════════════════════════════════════════════════════════════
+function openModalContrato() {
+  document.getElementById("f-inicio").value = new Date().toISOString().slice(0,10);
+  openModal("modal-contrato");
+}
+
+function guardarContrato() {
+  const inq = document.getElementById("f-inquilino").value.trim();
+  const prop = document.getElementById("f-propiedad").value.trim();
+  const inicio = document.getElementById("f-inicio").value;
+  const fin = document.getElementById("f-fin").value;
+  const canon = parseFloat(document.getElementById("f-canon").value);
+  const ajuste = document.getElementById("f-ajuste").value;
+  if (!inq || !prop || !inicio || !fin || !canon) { toast("Completá todos los campos"); return; }
+  STATE.contratos.push({ id: uid(), inquilino: inq, propiedad: prop, inicio, fin, canonInicial: canon, ajusteMeses: ajuste, pagos: [], ajustes: [], deposito: canon });
+  closeModal("modal-contrato");
+  save();
+  renderContratos();
+  toast("Contrato guardado ✓");
+}
+
+let pagoContratoId = null;
+function openModalPago(cid) {
+  pagoContratoId = cid;
+  const c = STATE.contratos.find(x => x.id === cid);
+  document.getElementById("p-monto").value = canonActual(c);
+  document.getElementById("p-fecha").value = new Date().toISOString().slice(0,10);
+  openModal("modal-pago");
+}
+
+function guardarPago() {
+  const mes = document.getElementById("p-mes").value;
+  const monto = parseFloat(document.getElementById("p-monto").value);
+  const fecha = document.getElementById("p-fecha").value;
+  if (!mes || !monto) { toast("Completá mes y monto"); return; }
+  const idx = STATE.contratos.findIndex(x => x.id === pagoContratoId);
+  const pagos = STATE.contratos[idx].pagos.filter(p => p.mes !== mes);
+  pagos.push({ mes, monto, pagado: true, fecha });
+  STATE.contratos[idx].pagos = pagos;
+  closeModal("modal-pago");
+  save();
+  renderDetalle();
+  toast("Pago registrado ✓");
+}
+
+function aplicarAjuste(cid) {
+  const idx = STATE.contratos.findIndex(x => x.id === cid);
+  const c = STATE.contratos[idx];
+  const prox = proximoAjusteMes(c);
+  const base = c.ajustes?.at(-1)?.desde ?? c.inicio.slice(0,7);
+  const acum = calcIpcAcumulado(base, prox);
+  const nuevoCan = Math.round(canonActual(c) * (1 + acum));
+  const ajuste = { desde: prox, porcentaje: +(acum * 100).toFixed(2), canon: nuevoCan };
+  STATE.contratos[idx].ajustes = [...(c.ajustes||[]), ajuste];
+  save();
+  renderDetalle();
+  toast(`Ajuste aplicado: ${fmt(nuevoCan)} desde ${mesLabel(prox)}`);
+}
+
+// IPC
+function openModalIPC() { openModal("modal-ipc"); }
+function guardarIPC() {
+  const mes = document.getElementById("ipc-mes").value;
+  const val = parseFloat(document.getElementById("ipc-val").value);
+  if (!mes || isNaN(val)) { toast("Completá los datos"); return; }
+  STATE.ipc[mes] = val;
+  closeModal("modal-ipc");
+  save();
+  renderIpcTabla();
+  toast(`IPC ${mesLabel(mes)}: ${val}% guardado ✓`);
+}
+
+function renderIpcTabla() {
+  document.getElementById("ipc-tabla").innerHTML = Object.entries(STATE.ipc)
+    .sort(([a],[b]) => a.localeCompare(b))
+    .map(([m, v]) => `<div style="background:#F0F4F8;border-radius:6px;padding:5px 10px;font-size:12px"><strong>${mesLabel(m)}</strong>: ${v}%</div>`)
+    .join("");
+}
+
+function calcularIPC() {
+  const base = parseFloat(document.getElementById("calc-canon").value);
+  const desde = document.getElementById("calc-desde").value;
+  const hasta = document.getElementById("calc-hasta").value;
+  if (!base || !desde || !hasta) { toast("Completá los campos"); return; }
+  const acum = calcIpcAcumulado(desde, hasta);
+  const nuevo = Math.round(base * (1 + acum));
+  document.getElementById("calc-pct").textContent = `+${(acum*100).toFixed(2)}%`;
+  document.getElementById("calc-nuevo").textContent = fmt(nuevo);
+  document.getElementById("calc-resultado").style.display = "block";
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODAL HELPERS
+// ══════════════════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("open"); }));
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+function renderAll() { renderDashboard(); renderContratos(); renderIpcTabla(); }
+
+window.addEventListener("load", () => {
+  const cid = getClientId();
+  if (!cid) {
+    document.getElementById("setup-screen").style.display = "block";
+    document.getElementById("content").style.display = "none";
+  } else if (cid === "offline") {
+    loadLocalData();
+    renderAll();
+  } else {
+    initGoogleAuth();
+    // Auto-intentar token silencioso
+    setTimeout(() => { if (tokenClient) tokenClient.requestAccessToken({ prompt: "" }); }, 1000);
+  }
+});
+</script>
+</body>
+</html>
