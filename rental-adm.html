@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>RENTAL ADM</title>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <style>
   /* ── Reset & base ── */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -183,8 +184,41 @@
     </div>
     <div id="auth-area">
       <span id="sync-status">No conectado</span>
+      <button onclick="openModal('modal-exportar')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:6px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer">⬇ Exportar</button>
       <button id="vincular-btn" onclick="openModal('modal-vincular')" style="display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:6px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer">Vincular ID</button>
       <button id="sync-btn" onclick="handleAuth()">Conectar Drive</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Exportar CSV -->
+<div id="modal-exportar" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">⬇ Exportar a Google Sheets</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">
+      Elegí qué información exportar. Se descarga un archivo CSV que podés abrir directamente en Google Sheets.
+    </p>
+    <div class="gap">
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer">
+        <input type="checkbox" id="exp-contratos" checked style="width:16px;height:16px"> Contratos (datos generales)
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer">
+        <input type="checkbox" id="exp-pagos" checked style="width:16px;height:16px"> Historial de pagos
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer">
+        <input type="checkbox" id="exp-ajustes" checked style="width:16px;height:16px"> Ajustes IPC aplicados
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer">
+        <input type="checkbox" id="exp-mora" checked style="width:16px;height:16px"> Resumen de mora por inquilino
+      </label>
+      <hr class="divider">
+      <div style="background:#F0F4F8;border-radius:8px;padding:12px;font-size:12px;color:var(--muted)">
+        💡 Para abrir en Google Sheets: descargá el archivo → abrí Sheets → Archivo → Importar → subí el CSV → separador: coma.
+      </div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-exportar')">Cancelar</button>
+        <button class="btn btn-green" onclick="exportarCSV()">⬇ Descargar CSV</button>
+      </div>
     </div>
   </div>
 </div>
@@ -217,12 +251,42 @@
   <!-- DASHBOARD -->
   <div id="view-dashboard" class="view active">
     <div class="gap">
+      <!-- KPIs -->
       <div class="grid-4" id="kpi-grid"></div>
+
+      <!-- Mes actual: cobrado vs pendiente -->
+      <div class="card" id="mes-actual-card"></div>
+
+      <!-- Gráficos -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">📊 Ingresos mensuales cobrados</div>
+          <canvas id="chart-ingresos" height="180"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">🥧 Estado de pagos</div>
+          <div style="display:flex;align-items:center;gap:20px">
+            <canvas id="chart-estado" width="160" height="160" style="flex-shrink:0"></canvas>
+            <div id="chart-estado-legend" style="font-size:13px;display:grid;gap:8px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canon por contrato -->
+      <div class="card">
+        <div class="card-title">🏠 Canon actual por contrato</div>
+        <canvas id="chart-canon" height="120"></canvas>
+      </div>
+
+      <!-- Alertas vencimiento + mora + ajustes -->
+      <div class="grid-2">
+        <div class="card" id="vencimientos-card"></div>
+        <div class="card" id="mora-card"></div>
+      </div>
       <div class="grid-2">
         <div class="card" id="pendientes-card"></div>
-        <div class="card" id="vencimientos-card"></div>
+        <div class="card" id="ajustes-card"></div>
       </div>
-      <div class="card" id="ajustes-card"></div>
     </div>
   </div>
 
@@ -683,21 +747,187 @@ function showView(id) {
 // ══════════════════════════════════════════════════════════════
 // RENDER: DASHBOARD
 // ══════════════════════════════════════════════════════════════
+let chartIngresos = null, chartEstado = null, chartCanon = null;
+
 function renderDashboard() {
   const cs = STATE.contratos;
   const totalMensual = cs.reduce((s, c) => s + canonActual(c), 0);
-  const pendientes = cs.flatMap(c => (c.pagos||[]).filter(p => !p.pagado).map(p => ({...p, inquilino: c.inquilino, cid: c.id})));
-  const proxVencer = cs.map(c => ({...c, dias: diasParaVencer(c.fin)})).filter(c => c.dias < 180).sort((a,b) => a.dias - b.dias);
+  const todosLosPagos = cs.flatMap(c => (c.pagos||[]).map(p => ({...p, inquilino: c.inquilino, cid: c.id, tasaMora: c.tasaMora})));
+  const pendientes = todosLosPagos.filter(p => !p.pagado);
+  const proxVencer = cs.map(c => ({...c, dias: diasParaVencer(c.fin)})).filter(c => c.dias < 365).sort((a,b) => a.dias - b.dias);
 
+  // ── KPIs ──
+  const totalMora = todosLosPagos.filter(p => p.mora).reduce((s,p) => s + (p.mora||0), 0);
   document.getElementById("kpi-grid").innerHTML = [
     { label: "Contratos activos", value: cs.length, color: "var(--navy)" },
     { label: "Ingresos mensuales", value: fmt(totalMensual), color: "var(--green)" },
     { label: "Cuotas pendientes", value: pendientes.length, color: pendientes.length > 0 ? "var(--red)" : "var(--green)" },
-    { label: "Por vencer <6 meses", value: proxVencer.length, color: proxVencer.length > 0 ? "var(--amber)" : "var(--green)" },
+    { label: "Mora cobrada total", value: fmt(totalMora), color: totalMora > 0 ? "var(--amber)" : "var(--muted)" },
   ].map(k => `<div class="card kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.value}</div></div>`).join("");
 
+  // ── Mes actual ──
+  const hoy = new Date();
+  const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`;
+  const pagosMesActual = todosLosPagos.filter(p => p.mes === mesActual);
+  const cobradoMes = pagosMesActual.filter(p => p.pagado).reduce((s,p) => s + p.monto, 0);
+  const pendienteMes = cs.reduce((s, c) => {
+    const tienePago = (c.pagos||[]).some(p => p.mes === mesActual && p.pagado);
+    return s + (tienePago ? 0 : canonActual(c));
+  }, 0);
+  const totalEsperado = cobradoMes + pendienteMes;
+  const pct = totalEsperado > 0 ? Math.round(cobradoMes / totalEsperado * 100) : 0;
+
+  document.getElementById("mes-actual-card").innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="card-title" style="margin:0">📅 ${mesLabel(mesActual)} — Estado de cobranza</div>
+      <span class="badge ${pct === 100 ? 'badge-green' : pct > 50 ? 'badge-amber' : 'badge-red'}">${pct}% cobrado</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div style="background:var(--green-lt);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--muted)">Cobrado</div>
+        <div style="font-size:20px;font-weight:900;color:var(--green);font-family:monospace">${fmt(cobradoMes)}</div>
+      </div>
+      <div style="background:var(--red-lt);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--muted)">Pendiente</div>
+        <div style="font-size:20px;font-weight:900;color:var(--red);font-family:monospace">${fmt(pendienteMes)}</div>
+      </div>
+      <div style="background:#F0F4F8;border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--muted)">Esperado total</div>
+        <div style="font-size:20px;font-weight:900;color:var(--navy);font-family:monospace">${fmt(totalEsperado)}</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;background:#E8EEF3;border-radius:20px;height:8px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:var(--green);border-radius:20px;transition:width .5s"></div>
+    </div>`;
+
+  // ── Gráfico: Ingresos mensuales ──
+  const mesesMap = {};
+  todosLosPagos.filter(p => p.pagado).forEach(p => {
+    mesesMap[p.mes] = (mesesMap[p.mes] || 0) + p.monto;
+  });
+  const mesesOrdenados = Object.keys(mesesMap).sort();
+  const ingresosData = mesesOrdenados.map(m => mesesMap[m]);
+
+  if (chartIngresos) chartIngresos.destroy();
+  const ctxI = document.getElementById("chart-ingresos").getContext("2d");
+  chartIngresos = new Chart(ctxI, {
+    type: "bar",
+    data: {
+      labels: mesesOrdenados.map(mesLabel),
+      datasets: [{
+        label: "Cobrado ($)",
+        data: ingresosData,
+        backgroundColor: "#3D7A5B",
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmt(ctx.raw) } } },
+      scales: {
+        y: { ticks: { callback: v => fmt(v) }, grid: { color: "#EEE" } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  // ── Gráfico: Estado de pagos (donut) ──
+  const alDia = todosLosPagos.filter(p => p.pagado && !p.mora).length;
+  const conMora = todosLosPagos.filter(p => p.pagado && p.mora).length;
+  const pend2 = todosLosPagos.filter(p => !p.pagado).length;
+
+  if (chartEstado) chartEstado.destroy();
+  const ctxE = document.getElementById("chart-estado").getContext("2d");
+  chartEstado = new Chart(ctxE, {
+    type: "doughnut",
+    data: {
+      labels: ["Al día", "Con mora", "Pendiente"],
+      datasets: [{ data: [alDia, conMora, pend2], backgroundColor: ["#3D7A5B","#B8820A","#B83228"], borderWidth: 2, borderColor: "#fff" }]
+    },
+    options: {
+      responsive: false, cutout: "65%",
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw} pagos` } } }
+    }
+  });
+  document.getElementById("chart-estado-legend").innerHTML = [
+    { color: "#3D7A5B", label: "Al día", val: alDia },
+    { color: "#B8820A", label: "Con mora", val: conMora },
+    { color: "#B83228", label: "Pendiente", val: pend2 },
+  ].map(l => `<div style="display:flex;align-items:center;gap:8px">
+    <div style="width:12px;height:12px;border-radius:3px;background:${l.color};flex-shrink:0"></div>
+    <span>${l.label}: <strong>${l.val}</strong></span>
+  </div>`).join("");
+
+  // ── Gráfico: Canon por contrato ──
+  if (chartCanon) chartCanon.destroy();
+  const ctxC = document.getElementById("chart-canon").getContext("2d");
+  chartCanon = new Chart(ctxC, {
+    type: "bar",
+    data: {
+      labels: cs.map(c => c.inquilino.split(" ")[0] + " " + (c.inquilino.split(" ")[1]||"")),
+      datasets: [{
+        label: "Canon actual",
+        data: cs.map(c => canonActual(c)),
+        backgroundColor: cs.map((_,i) => ["#1B2B3A","#3D7A5B","#B8820A","#B83228","#2E4559","#5A9A7A"][i % 6]),
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmt(ctx.raw) } } },
+      scales: {
+        x: { ticks: { callback: v => fmt(v) }, grid: { color: "#EEE" } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+
+  // ── Vencimientos con cuenta regresiva ──
+  document.getElementById("vencimientos-card").innerHTML = `
+    <div class="card-title">📅 Vencimientos de contratos</div>
+    ${proxVencer.length === 0
+      ? `<div class="alert alert-green">Sin vencimientos próximos</div>`
+      : proxVencer.map(c => {
+          const color = c.dias < 60 ? "var(--red)" : c.dias < 180 ? "var(--amber)" : "var(--green)";
+          const bg = c.dias < 60 ? "var(--red-lt)" : c.dias < 180 ? "var(--amber-lt)" : "var(--green-lt)";
+          return `<div class="row-item" onclick="abrirDetalle('${c.id}')" style="cursor:pointer">
+            <div>
+              <div style="font-weight:600">${c.inquilino}</div>
+              <div class="muted" style="font-size:12px">${fmtFecha(c.fin)}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:22px;font-weight:900;color:${color};font-family:monospace;line-height:1">${c.dias}</div>
+              <div style="font-size:10px;color:${color};font-weight:700">DÍAS</div>
+            </div>
+          </div>`;
+        }).join("")}`;
+
+  // ── Historial de mora por inquilino ──
+  const moraResumen = cs.map(c => {
+    const pagosConMora = (c.pagos||[]).filter(p => p.mora > 0);
+    const totalMoraC = pagosConMora.reduce((s,p) => s+(p.mora||0), 0);
+    return { inquilino: c.inquilino, id: c.id, cantidad: pagosConMora.length, total: totalMoraC, pagos: pagosConMora };
+  }).filter(x => x.cantidad > 0);
+
+  document.getElementById("mora-card").innerHTML = `
+    <div class="card-title">⏱ Historial de mora por inquilino</div>
+    ${moraResumen.length === 0
+      ? `<div class="alert alert-green">Sin registros de mora ✓</div>`
+      : moraResumen.map(m => `
+        <div class="row-item" onclick="abrirDetalle('${m.id}')" style="cursor:pointer">
+          <div>
+            <div style="font-weight:600">${m.inquilino}</div>
+            <div class="muted" style="font-size:12px">${m.cantidad} pago${m.cantidad>1?'s':''} con mora</div>
+          </div>
+          <div class="mono" style="color:var(--amber)">${fmt(m.total)}</div>
+        </div>`).join("")}`;
+
+  // ── Cuotas pendientes ──
   document.getElementById("pendientes-card").innerHTML = `
-    <div class="card-title">⚠ Cuotas pendientes</div>
+    <div class="card-title">⚠ Cuotas pendientes de cobro</div>
     ${pendientes.length === 0
       ? `<div class="alert alert-green">Todo al día ✓</div>`
       : pendientes.map(p => `
@@ -706,31 +936,20 @@ function renderDashboard() {
           <div class="mono" style="color:var(--red)">${fmt(p.monto)}</div>
         </div>`).join("")}`;
 
-  document.getElementById("vencimientos-card").innerHTML = `
-    <div class="card-title">📅 Vencimientos próximos</div>
-    ${proxVencer.length === 0
-      ? `<div class="alert alert-green">Sin vencimientos en 6 meses</div>`
-      : proxVencer.map(c => `
-        <div class="row-item" onclick="abrirDetalle('${c.id}')" style="cursor:pointer">
-          <div>
-            <div style="font-weight:600">${c.inquilino}</div>
-            <div class="muted" style="font-size:12px">${fmtFecha(c.fin)}</div>
-          </div>
-          <span class="badge ${c.dias < 60 ? 'badge-red' : 'badge-amber'}">${c.dias}d</span>
-        </div>`).join("")}`;
-
+  // ── Próximos ajustes IPC ──
   document.getElementById("ajustes-card").innerHTML = `
     <div class="card-title">📈 Próximos ajustes IPC</div>
-    <div class="grid-2">
-      ${cs.map(c => {
-        const prox = proximoAjusteMes(c);
-        return `<div class="ajuste-box">
-          <div class="ajuste-desde">${c.inquilino}</div>
-          <div class="ajuste-pct">Próximo: ${mesLabel(prox)}</div>
-          <div class="ajuste-canon">${fmt(canonActual(c))}</div>
-        </div>`;
-      }).join("") || '<div class="muted">Sin contratos</div>'}
-    </div>`;
+    ${cs.map(c => {
+      const prox = proximoAjusteMes(c);
+      const diasAjuste = Math.ceil((new Date(`${prox}-01`) - new Date()) / 86400000);
+      return `<div class="row-item" onclick="abrirDetalle('${c.id}')" style="cursor:pointer">
+        <div>
+          <div style="font-weight:600">${c.inquilino}</div>
+          <div class="muted" style="font-size:12px">${mesLabel(prox)} · en ${diasAjuste}d</div>
+        </div>
+        <div class="mono" style="color:var(--amber)">${fmt(canonActual(c))}</div>
+      </div>`;
+    }).join("") || '<div class="muted">Sin contratos</div>'}`;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1196,6 +1415,113 @@ function calcularIPC() {
   document.getElementById("calc-pct").textContent = `+${(acum*100).toFixed(2)}%`;
   document.getElementById("calc-nuevo").textContent = fmt(nuevo);
   document.getElementById("calc-resultado").style.display = "block";
+}
+
+// ══════════════════════════════════════════════════════════════
+// EXPORTAR CSV
+// ══════════════════════════════════════════════════════════════
+function csvRow(arr) {
+  return arr.map(v => {
+    const s = String(v ?? "").replace(/"/g, '""');
+    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s}"` : s;
+  }).join(",");
+}
+
+function exportarCSV() {
+  const expContratos = document.getElementById("exp-contratos").checked;
+  const expPagos = document.getElementById("exp-pagos").checked;
+  const expAjustes = document.getElementById("exp-ajustes").checked;
+  const expMora = document.getElementById("exp-mora").checked;
+
+  let contenido = "\uFEFF"; // BOM para que Sheets/Excel lean bien el UTF-8
+  const SEP = "\n\n";
+
+  if (expContratos) {
+    contenido += "CONTRATOS\n";
+    contenido += csvRow(["Inquilino","Propiedad","Inicio","Vencimiento","Días restantes","Canon inicial","Canon actual","Ajuste","Teléfono","Tasa mora %","Depósito"]) + "\n";
+    STATE.contratos.forEach(c => {
+      contenido += csvRow([
+        c.inquilino,
+        c.propiedad,
+        fmtFecha(c.inicio),
+        fmtFecha(c.fin),
+        diasParaVencer(c.fin),
+        c.canonInicial,
+        canonActual(c),
+        c.ajusteMeses === "6" ? "Semestral IPC" : c.ajusteMeses === "4" ? "Cuatrimestral IPC" : "Trimestral IPC",
+        c.telefono || "",
+        c.tasaMora || "",
+        c.deposito || c.canonInicial,
+      ]) + "\n";
+    });
+    contenido += SEP;
+  }
+
+  if (expPagos) {
+    contenido += "HISTORIAL DE PAGOS\n";
+    contenido += csvRow(["Inquilino","Mes","Alquiler","Mora","Total cobrado","Fecha de pago","Estado","Días de mora"]) + "\n";
+    STATE.contratos.forEach(c => {
+      (c.pagos||[]).sort((a,b) => a.mes.localeCompare(b.mes)).forEach(p => {
+        contenido += csvRow([
+          c.inquilino,
+          mesLabel(p.mes),
+          p.monto,
+          p.mora || 0,
+          p.monto + (p.mora || 0),
+          fmtFecha(p.fecha),
+          p.pagado ? "Cobrado" : "Pendiente",
+          p.diasMora || 0,
+        ]) + "\n";
+      });
+    });
+    contenido += SEP;
+  }
+
+  if (expAjustes) {
+    contenido += "AJUSTES IPC APLICADOS\n";
+    contenido += csvRow(["Inquilino","Desde","IPC acumulado %","Canon resultante"]) + "\n";
+    STATE.contratos.forEach(c => {
+      if (!c.ajustes?.length) {
+        contenido += csvRow([c.inquilino, "Sin ajustes", "", ""]) + "\n";
+      } else {
+        c.ajustes.forEach(a => {
+          contenido += csvRow([c.inquilino, mesLabel(a.desde), a.porcentaje, a.canon]) + "\n";
+        });
+      }
+    });
+    contenido += SEP;
+  }
+
+  if (expMora) {
+    contenido += "RESUMEN DE MORA POR INQUILINO\n";
+    contenido += csvRow(["Inquilino","Pagos con mora","Total mora cobrada","Promedio mora por pago"]) + "\n";
+    STATE.contratos.forEach(c => {
+      const pagosConMora = (c.pagos||[]).filter(p => p.mora > 0);
+      const totalMoraC = pagosConMora.reduce((s,p) => s+(p.mora||0), 0);
+      const promedio = pagosConMora.length > 0 ? Math.round(totalMoraC / pagosConMora.length) : 0;
+      contenido += csvRow([c.inquilino, pagosConMora.length, totalMoraC, promedio]) + "\n";
+    });
+    contenido += SEP;
+  }
+
+  // IPC cargados siempre
+  contenido += "IPC INDEC CARGADOS\n";
+  contenido += csvRow(["Mes","Variación %"]) + "\n";
+  Object.entries(STATE.ipc).sort(([a],[b]) => a.localeCompare(b)).forEach(([m,v]) => {
+    contenido += csvRow([mesLabel(m), v]) + "\n";
+  });
+
+  // Descargar
+  const hoy = new Date().toISOString().slice(0,10);
+  const blob = new Blob([contenido], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `rental-adm-export-${hoy}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  closeModal("modal-exportar");
+  toast("CSV descargado ✓ — abrilo en Google Sheets");
 }
 
 // ══════════════════════════════════════════════════════════════
