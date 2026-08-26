@@ -146,6 +146,32 @@
 <!-- Toast -->
 <div id="toast"></div>
 
+<!-- Banner: compartir archivo Drive -->
+<div id="file-id-banner" style="display:none;background:#1B2B3A;color:#fff;padding:12px 20px;font-size:13px;text-align:center">
+  📁 Archivo creado en Drive. Para que otra cuenta acceda, compartí este ID:
+  <strong id="file-id-display" style="font-family:monospace;margin:0 10px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:4px"></strong>
+  <button onclick="copiarFileId()" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px">Copiar</button>
+  <button onclick="document.getElementById('file-id-banner').style.display='none'" style="background:transparent;border:none;color:rgba(255,255,255,.5);cursor:pointer;margin-left:8px">✕</button>
+</div>
+
+<!-- Modal: vincular ID de archivo compartido -->
+<div id="modal-vincular" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">Vincular archivo compartido</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+      Si otra cuenta ya tiene el archivo de datos, pegá el ID del archivo de Drive para sincronizar los mismos datos.
+    </p>
+    <div class="form-group">
+      <label class="form-label">ID del archivo Drive</label>
+      <input id="shared-file-id-input" class="form-input" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" style="font-family:monospace;font-size:12px">
+    </div>
+    <div class="grid-2" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-vincular')">Cancelar</button>
+      <button class="btn btn-primary" onclick="vincularArchivo()">Vincular y cargar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Header -->
 <div id="header">
   <div id="header-inner">
@@ -157,6 +183,7 @@
     </div>
     <div id="auth-area">
       <span id="sync-status">No conectado</span>
+      <button id="vincular-btn" onclick="openModal('modal-vincular')" style="display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:6px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer">Vincular ID</button>
       <button id="sync-btn" onclick="handleAuth()">Conectar Drive</button>
     </div>
   </div>
@@ -261,10 +288,10 @@
   </div>
 </div>
 
-<!-- Modal: Nuevo contrato -->
+<!-- Modal: Nuevo / Editar contrato -->
 <div id="modal-contrato" class="modal-bg">
   <div class="modal">
-    <div class="modal-title">Nuevo contrato</div>
+    <div class="modal-title" id="modal-contrato-title">Nuevo contrato</div>
     <div class="gap">
       <div class="form-group"><label class="form-label">Inquilino</label><input id="f-inquilino" class="form-input" placeholder="Nombre completo"></div>
       <div class="form-group"><label class="form-label">Propiedad</label><input id="f-propiedad" class="form-input" placeholder="Dirección"></div>
@@ -283,8 +310,133 @@
         </div>
       </div>
       <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Teléfono WhatsApp (con código país)</label>
+          <input id="f-telefono" class="form-input" placeholder="5493425551234" type="tel">
+          <span style="font-size:11px;color:var(--muted)">Ej: 549 + código de área + número</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tasa mora mensual % (BNA)</label>
+          <input id="f-tasa" type="number" step="0.01" class="form-input" placeholder="Ej: 5.5">
+          <span style="font-size:11px;color:var(--muted)">Se aplica desde el día 11 de cada mes</span>
+        </div>
+      </div>
+      <div class="grid-2">
         <button class="btn btn-ghost" onclick="closeModal('modal-contrato')">Cancelar</button>
-        <button class="btn btn-green" onclick="guardarContrato()">Guardar</button>
+        <button class="btn btn-green" id="btn-guardar-contrato" onclick="guardarContrato()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirmar eliminar contrato -->
+<div id="modal-eliminar" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">⚠ Eliminar contrato</div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:20px">Esta acción no se puede deshacer. ¿Confirmás que querés eliminar este contrato y todos sus pagos?</p>
+    <div class="grid-2">
+      <button class="btn btn-ghost" onclick="closeModal('modal-eliminar')">Cancelar</button>
+      <button class="btn btn-red" onclick="confirmarEliminar()">Sí, eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar ajuste IPC -->
+<div id="modal-editar-ajuste" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">Editar ajuste IPC</div>
+    <div class="gap">
+      <div class="form-group"><label class="form-label">Desde (mes)</label><input id="ea-desde" type="month" class="form-input"></div>
+      <div class="form-group"><label class="form-label">IPC acumulado %</label><input id="ea-pct" type="number" step="0.01" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Canon resultante ($)</label><input id="ea-canon" type="number" class="form-input"></div>
+      <p style="font-size:12px;color:var(--muted)">Podés modificar el canon directamente si querés usar un valor distinto al calculado por IPC.</p>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-editar-ajuste')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarAjusteEditado()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Calcular intereses por mora -->
+<div id="modal-mora" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">⏱ Intereses por pago fuera de término</div>
+    <div class="gap">
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Vencimiento (día 10 del mes)</label>
+          <input id="mora-vto" type="date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fecha de pago efectivo</label>
+          <input id="mora-pago" type="date" class="form-input" onchange="calcularMora()">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Monto del alquiler ($)</label>
+          <input id="mora-monto" type="number" class="form-input" onchange="calcularMora()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tasa mora mensual %</label>
+          <input id="mora-tasa" type="number" step="0.01" class="form-input" onchange="calcularMora()">
+        </div>
+      </div>
+      <div id="mora-resultado" style="display:none">
+        <hr class="divider">
+        <div style="display:grid;gap:8px">
+          <div class="row-item">
+            <span class="muted">Días de mora</span>
+            <span id="mora-dias" style="font-weight:700"></span>
+          </div>
+          <div class="row-item">
+            <span class="muted">Tasa diaria efectiva</span>
+            <span id="mora-tasa-diaria" style="font-weight:700"></span>
+          </div>
+          <div class="row-item">
+            <span class="muted">Interés moratorio</span>
+            <span id="mora-interes" style="font-weight:700;color:var(--amber)"></span>
+          </div>
+          <div class="row-item" id="mora-punitorio-row" style="display:none">
+            <span class="muted">Interés punitorio (×2 desde día 31)</span>
+            <span id="mora-punitorio" style="font-weight:700;color:var(--red)"></span>
+          </div>
+          <div style="background:var(--red-lt);border-radius:8px;padding:12px;margin-top:4px">
+            <div style="font-size:12px;color:var(--muted)">TOTAL A COBRAR</div>
+            <div id="mora-total" style="font-size:24px;font-weight:900;color:var(--red);font-family:monospace"></div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:4px">
+        <button class="btn btn-ghost" onclick="closeModal('modal-mora')">Cerrar</button>
+        <button class="btn btn-primary" onclick="registrarPagoConMora()">Registrar pago + mora</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: WhatsApp aviso alquiler -->
+<div id="modal-whatsapp" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">📱 Enviar aviso por WhatsApp</div>
+    <div class="gap">
+      <div class="form-group">
+        <label class="form-label">Teléfono del inquilino</label>
+        <input id="wa-telefono" class="form-input" placeholder="5493425551234">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mes a avisar</label>
+        <input id="wa-mes" type="month" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mensaje</label>
+        <textarea id="wa-mensaje" class="form-input" rows="6" style="resize:vertical;font-size:13px"></textarea>
+      </div>
+      <p style="font-size:11px;color:var(--muted)">Se va a abrir WhatsApp Web o la app con el mensaje listo. Solo tocás Enviar.</p>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-whatsapp')">Cancelar</button>
+        <button class="btn btn-green" onclick="abrirWhatsapp()">📲 Abrir WhatsApp</button>
       </div>
     </div>
   </div>
@@ -339,6 +491,9 @@ let driveFileId = null;
 let tokenClient = null;
 let accessToken = null;
 const DRIVE_FILENAME = "rental-adm-data.json";
+// ID del archivo compartido — se guarda la primera vez que se crea
+function getSharedFileId() { return localStorage.getItem("rental_drive_file_id") || null; }
+function setSharedFileId(id) { localStorage.setItem("rental_drive_file_id", id); }
 
 // ══════════════════════════════════════════════════════════════
 // UTILS
@@ -413,7 +568,7 @@ function initGoogleAuth() {
   if (!cid || cid === "offline") { loadLocalData(); renderAll(); return; }
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: cid,
-    scope: "https://www.googleapis.com/auth/drive.appdata",
+    scope: "https://www.googleapis.com/auth/drive.file",
     callback: async (resp) => {
       if (resp.error) { toast("Error de autenticación"); return; }
       accessToken = resp.access_token;
@@ -438,14 +593,28 @@ function handleAuth() {
 
 async function loadFromDrive() {
   try {
-    // buscar archivo
+    // Intentar con file ID guardado localmente (funciona para cualquier cuenta con acceso)
+    driveFileId = getSharedFileId();
+    if (driveFileId) {
+      const r = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (r.ok) {
+        STATE = await r.json();
+        toast("Datos cargados desde Drive ✓");
+        return;
+      }
+    }
+    // Buscar por nombre en Drive de la cuenta conectada
     const r = await fetch(
-      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='${DRIVE_FILENAME}'&fields=files(id,name)`,
+      `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILENAME}'+and+trashed=false&fields=files(id,name)`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const data = await r.json();
     if (data.files?.length > 0) {
       driveFileId = data.files[0].id;
+      setSharedFileId(driveFileId);
       const r2 = await fetch(
         `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -464,21 +633,27 @@ async function saveToDrive() {
   saveLocal();
   try {
     const blob = new Blob([JSON.stringify(STATE)], { type: "application/json" });
-    const meta = { name: DRIVE_FILENAME, parents: ["appDataFolder"] };
     let url, method;
+    const form = new FormData();
     if (driveFileId) {
       url = `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=multipart`;
       method = "PATCH";
+      form.append("metadata", new Blob([JSON.stringify({})], { type: "application/json" }));
     } else {
       url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
       method = "POST";
+      form.append("metadata", new Blob([JSON.stringify({ name: DRIVE_FILENAME })], { type: "application/json" }));
     }
-    const form = new FormData();
-    form.append("metadata", new Blob([JSON.stringify(driveFileId ? {} : meta)], { type: "application/json" }));
     form.append("file", blob);
     const r = await fetch(url, { method, headers: { Authorization: `Bearer ${accessToken}` }, body: form });
     const d = await r.json();
-    if (!driveFileId) driveFileId = d.id;
+    if (!driveFileId) {
+      driveFileId = d.id;
+      setSharedFileId(driveFileId);
+      // Mostrar ID para que lo comparta con la otra cuenta
+      document.getElementById("file-id-display").textContent = driveFileId;
+      document.getElementById("file-id-banner").style.display = "block";
+    }
     toast("Guardado en Drive ✓");
   } catch(e) { toast("Error al guardar en Drive"); }
 }
@@ -569,9 +744,9 @@ function renderContratos() {
         const dias = diasParaVencer(c.fin);
         const pend = (c.pagos||[]).filter(p => !p.pagado).length;
         return `
-        <div class="card contrato-card" onclick="abrirDetalle('${c.id}')">
+        <div class="card contrato-card">
           <div class="contrato-header">
-            <div>
+            <div onclick="abrirDetalle('${c.id}')" style="flex:1;cursor:pointer">
               <div class="contrato-name">${c.inquilino}</div>
               <div class="contrato-prop">${c.propiedad}</div>
               <div class="contrato-badges">
@@ -580,10 +755,16 @@ function renderContratos() {
                 <span class="badge badge-navy">${c.ajusteMeses === "6" ? "Sem." : c.ajusteMeses === "4" ? "Cuatrim." : "Trim."} IPC</span>
               </div>
             </div>
-            <div class="contrato-canon">
-              <div class="canon-label">Canon actual</div>
-              <div class="canon-value">${fmt(canonActual(c))}</div>
-              <div class="muted" style="font-size:11px">/mes</div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+              <div class="contrato-canon" onclick="abrirDetalle('${c.id}')" style="cursor:pointer;text-align:right">
+                <div class="canon-label">Canon actual</div>
+                <div class="canon-value">${fmt(canonActual(c))}</div>
+                <div class="muted" style="font-size:11px">/mes</div>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editarContrato('${c.id}')">✏ Editar</button>
+                <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="event.stopPropagation();pedirEliminar('${c.id}')">🗑 Eliminar</button>
+              </div>
             </div>
           </div>
         </div>`;
@@ -608,7 +789,10 @@ function renderDetalle() {
   const dias = diasParaVencer(c.fin);
 
   document.getElementById("detalle-info").innerHTML = `
-    <div class="card-title">Datos del contrato</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="card-title" style="margin:0">Datos del contrato</div>
+      <button class="btn btn-ghost btn-sm" onclick="editarContrato('${c.id}')">✏ Editar</button>
+    </div>
     ${[
       ["Propiedad", c.propiedad],
       ["Inicio", fmtFecha(c.inicio)],
@@ -618,22 +802,38 @@ function renderDetalle() {
       ["Canon actual", `<span class="mono" style="color:var(--green)">${fmt(ca)}</span>`],
       ["Depósito", fmt(c.deposito ?? c.canonInicial)],
       ["Ajuste", `${c.ajusteMeses === "6" ? "Semestral" : c.ajusteMeses === "4" ? "Cuatrimestral" : "Trimestral"} IPC`],
+      ["Teléfono", c.telefono ? `<a href="https://wa.me/${c.telefono}" target="_blank" style="color:var(--green)">+${c.telefono}</a>` : '—'],
+      ["Tasa mora mensual", c.tasaMora ? `${c.tasaMora}%` : '—'],
     ].map(([k,v]) => `<div class="row-item"><span class="muted">${k}</span><span style="font-weight:600;text-align:right;max-width:58%">${v}</span></div>`).join("")}
+    <div style="margin-top:14px">
+      <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer" onclick="pedirEliminar('${c.id}')">🗑 Eliminar contrato</button>
+    </div>
   `;
 
   document.getElementById("detalle-ajustes").innerHTML = `
     <div class="card-title">Ajustes IPC aplicados</div>
-    ${(c.ajustes||[]).map(a => `
-      <div class="ajuste-box">
-        <div class="ajuste-desde">Desde ${mesLabel(a.desde)}</div>
-        <div class="ajuste-pct">IPC acum.: +${a.porcentaje}%</div>
-        <div class="ajuste-canon">${fmt(a.canon)}</div>
+    ${(c.ajustes||[]).map((a, i) => `
+      <div class="ajuste-box" style="position:relative">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="ajuste-desde">Desde ${mesLabel(a.desde)}</div>
+            <div class="ajuste-pct">IPC acum.: +${a.porcentaje}%</div>
+            <div class="ajuste-canon">${fmt(a.canon)}</div>
+          </div>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-sm" style="background:rgba(0,0,0,.08);border:none;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer" onclick="editarAjuste('${c.id}', ${i})">✏</button>
+            <button class="btn btn-sm" style="background:rgba(184,50,40,.12);color:var(--red);border:none;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer" onclick="eliminarAjuste('${c.id}', ${i})">🗑</button>
+          </div>
+        </div>
       </div>`).join("") || '<div class="muted" style="font-size:13px">Sin ajustes aún</div>'}
     <div style="margin-top:12px;background:#F0F4F8;border-radius:8px;padding:12px;font-size:13px">
       <div class="muted">Próximo ajuste estimado</div>
       <div style="font-weight:700">${mesLabel(prox)}</div>
     </div>
-    <button class="btn btn-green btn-sm" style="margin-top:12px" onclick="aplicarAjuste('${c.id}')">Calcular y aplicar</button>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn btn-green btn-sm" onclick="aplicarAjuste('${c.id}')">Calcular y aplicar</button>
+      <button class="btn btn-ghost btn-sm" onclick="agregarAjusteManual('${c.id}')">+ Ajuste manual</button>
+    </div>
   `;
 
   const totalCobrado = (c.pagos||[]).filter(p => p.pagado).reduce((s,p) => s+p.monto, 0);
@@ -645,20 +845,30 @@ function renderDetalle() {
   ].map(k => `<div class="card kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.value}</div></div>`).join("");
 
   document.getElementById("detalle-pagos").innerHTML = `
-    <div class="row" style="margin-bottom:14px">
-      <div class="card-title" style="margin:0">Historial de pagos</div>
-      <button class="btn btn-sm btn-primary" onclick="openModalPago('${c.id}')">+ Registrar pago</button>
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-title" style="margin:0">Historial de pagos</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-sm" style="background:#25D366;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="openModalWhatsapp('${c.id}')">📱 WhatsApp</button>
+          <button class="btn btn-sm" style="background:var(--amber-lt);color:var(--amber);border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="openModalMora('${c.id}')">⏱ Mora</button>
+          <button class="btn btn-sm btn-primary" onclick="openModalPago('${c.id}')">+ Pago</button>
+        </div>
+      </div>
     </div>
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>Mes</th><th>Monto</th><th>Fecha</th><th>Estado</th></tr></thead>
+      <thead><tr><th>Mes</th><th>Alquiler</th><th>Mora</th><th>Fecha</th><th>Estado</th><th></th></tr></thead>
       <tbody>
         ${[...(c.pagos||[])].reverse().map(p => `
           <tr>
             <td style="font-weight:600">${mesLabel(p.mes)}</td>
             <td class="mono">${fmt(p.monto)}</td>
+            <td class="mono" style="color:var(--amber)">${p.mora ? fmt(p.mora) : '—'}</td>
             <td class="muted">${fmtFecha(p.fecha)}</td>
             <td><span class="badge ${p.pagado ? 'badge-green' : 'badge-red'}">${p.pagado ? 'Cobrado' : 'Pendiente'}</span></td>
+            <td style="text-align:right">
+              <button onclick="eliminarPago('${c.id}','${p.mes}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px" title="Eliminar">🗑</button>
+            </td>
           </tr>`).join("")}
       </tbody>
     </table>
@@ -667,10 +877,34 @@ function renderDetalle() {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ACCIONES
+// ACCIONES — CONTRATOS
 // ══════════════════════════════════════════════════════════════
+let editandoContratoId = null;
+
 function openModalContrato() {
+  editandoContratoId = null;
+  document.getElementById("modal-contrato-title").textContent = "Nuevo contrato";
+  document.getElementById("btn-guardar-contrato").textContent = "Guardar";
+  ["f-inquilino","f-propiedad","f-fin","f-canon","f-telefono","f-tasa"].forEach(id => document.getElementById(id).value = "");
   document.getElementById("f-inicio").value = new Date().toISOString().slice(0,10);
+  document.getElementById("f-ajuste").value = "3";
+  openModal("modal-contrato");
+}
+
+function editarContrato(cid) {
+  const c = STATE.contratos.find(x => x.id === cid);
+  if (!c) return;
+  editandoContratoId = cid;
+  document.getElementById("modal-contrato-title").textContent = "Editar contrato";
+  document.getElementById("btn-guardar-contrato").textContent = "Guardar cambios";
+  document.getElementById("f-inquilino").value = c.inquilino;
+  document.getElementById("f-propiedad").value = c.propiedad;
+  document.getElementById("f-inicio").value = c.inicio;
+  document.getElementById("f-fin").value = c.fin;
+  document.getElementById("f-canon").value = c.canonInicial;
+  document.getElementById("f-ajuste").value = c.ajusteMeses || "3";
+  document.getElementById("f-telefono").value = c.telefono || "";
+  document.getElementById("f-tasa").value = c.tasaMora || "";
   openModal("modal-contrato");
 }
 
@@ -681,20 +915,164 @@ function guardarContrato() {
   const fin = document.getElementById("f-fin").value;
   const canon = parseFloat(document.getElementById("f-canon").value);
   const ajuste = document.getElementById("f-ajuste").value;
+  const telefono = document.getElementById("f-telefono").value.trim().replace(/\D/g,"");
+  const tasaMora = parseFloat(document.getElementById("f-tasa").value) || 0;
   if (!inq || !prop || !inicio || !fin || !canon) { toast("Completá todos los campos"); return; }
-  STATE.contratos.push({ id: uid(), inquilino: inq, propiedad: prop, inicio, fin, canonInicial: canon, ajusteMeses: ajuste, pagos: [], ajustes: [], deposito: canon });
+
+  if (editandoContratoId) {
+    const idx = STATE.contratos.findIndex(x => x.id === editandoContratoId);
+    STATE.contratos[idx] = { ...STATE.contratos[idx], inquilino: inq, propiedad: prop, inicio, fin, canonInicial: canon, ajusteMeses: ajuste, telefono, tasaMora };
+    toast("Contrato actualizado ✓");
+  } else {
+    STATE.contratos.push({ id: uid(), inquilino: inq, propiedad: prop, inicio, fin, canonInicial: canon, ajusteMeses: ajuste, telefono, tasaMora, pagos: [], ajustes: [], deposito: canon });
+    toast("Contrato guardado ✓");
+  }
   closeModal("modal-contrato");
   save();
   renderContratos();
-  toast("Contrato guardado ✓");
+  if (editandoContratoId && contratoActualId === editandoContratoId) renderDetalle();
 }
 
+// ══════════════════════════════════════════════════════════════
+// MORA
+// ══════════════════════════════════════════════════════════════
+let moraCid = null;
+
+function openModalMora(cid) {
+  moraCid = cid;
+  const c = STATE.contratos.find(x => x.id === cid);
+  const ca = canonActual(c);
+  // vencimiento = día 10 del mes corriente
+  const hoy = new Date();
+  const vto = new Date(hoy.getFullYear(), hoy.getMonth(), 10);
+  document.getElementById("mora-vto").value = vto.toISOString().slice(0,10);
+  document.getElementById("mora-pago").value = hoy.toISOString().slice(0,10);
+  document.getElementById("mora-monto").value = ca;
+  document.getElementById("mora-tasa").value = c.tasaMora || "";
+  document.getElementById("mora-resultado").style.display = "none";
+  openModal("modal-mora");
+  calcularMora();
+}
+
+function calcularMora() {
+  const vto = new Date(document.getElementById("mora-vto").value);
+  const pago = new Date(document.getElementById("mora-pago").value);
+  const monto = parseFloat(document.getElementById("mora-monto").value) || 0;
+  const tasaMensual = parseFloat(document.getElementById("mora-tasa").value) || 0;
+  if (!monto || !tasaMensual || isNaN(vto) || isNaN(pago)) return;
+
+  const dias = Math.max(0, Math.ceil((pago - vto) / 86400000));
+  if (dias <= 0) { document.getElementById("mora-resultado").style.display = "none"; return; }
+
+  const tasaDiaria = tasaMensual / 30 / 100;
+  // Interés moratorio: tasa diaria × días × monto
+  const interesNormal = monto * tasaDiaria * Math.min(dias, 30);
+  // Punitorio: doble tasa desde día 31
+  const diasPunit = Math.max(0, dias - 30);
+  const interesPunit = monto * (tasaDiaria * 2) * diasPunit;
+  const total = monto + interesNormal + interesPunit;
+
+  document.getElementById("mora-dias").textContent = `${dias} días`;
+  document.getElementById("mora-tasa-diaria").textContent = `${(tasaDiaria*100).toFixed(4)}% diario`;
+  document.getElementById("mora-interes").textContent = fmt(interesNormal);
+  document.getElementById("mora-punitorio-row").style.display = diasPunit > 0 ? "flex" : "none";
+  document.getElementById("mora-punitorio").textContent = fmt(interesPunit);
+  document.getElementById("mora-total").textContent = fmt(total);
+  document.getElementById("mora-resultado").style.display = "block";
+}
+
+function registrarPagoConMora() {
+  const mes = document.getElementById("mora-vto").value.slice(0,7);
+  const monto = parseFloat(document.getElementById("mora-monto").value);
+  const fecha = document.getElementById("mora-pago").value;
+  const vto = new Date(document.getElementById("mora-vto").value);
+  const pago = new Date(fecha);
+  const dias = Math.max(0, Math.ceil((pago - vto) / 86400000));
+  const tasaMensual = parseFloat(document.getElementById("mora-tasa").value) || 0;
+  const tasaDiaria = tasaMensual / 30 / 100;
+  const interesNormal = monto * tasaDiaria * Math.min(dias, 30);
+  const diasPunit = Math.max(0, dias - 30);
+  const interesPunit = monto * (tasaDiaria * 2) * diasPunit;
+  const mora = Math.round(interesNormal + interesPunit);
+
+  const idx = STATE.contratos.findIndex(x => x.id === moraCid);
+  const pagos = STATE.contratos[idx].pagos.filter(p => p.mes !== mes);
+  pagos.push({ mes, monto, mora, pagado: true, fecha, diasMora: dias });
+  STATE.contratos[idx].pagos = pagos;
+  closeModal("modal-mora");
+  save();
+  renderDetalle();
+  toast(`Pago registrado con mora de ${fmt(mora)} ✓`);
+}
+
+// ══════════════════════════════════════════════════════════════
+// WHATSAPP
+// ══════════════════════════════════════════════════════════════
+let waCid = null;
+
+function openModalWhatsapp(cid) {
+  waCid = cid;
+  const c = STATE.contratos.find(x => x.id === cid);
+  const ca = canonActual(c);
+  // Mes siguiente
+  const hoy = new Date();
+  const proxMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+  const mesStr = `${proxMes.getFullYear()}-${String(proxMes.getMonth()+1).padStart(2,"0")}`;
+
+  document.getElementById("wa-telefono").value = c.telefono || "";
+  document.getElementById("wa-mes").value = mesStr;
+
+  const mensaje = generarMensajeWA(c, mesStr, ca);
+  document.getElementById("wa-mensaje").value = mensaje;
+  openModal("modal-whatsapp");
+}
+
+function generarMensajeWA(c, mesStr, canon) {
+  const nombreCorto = c.inquilino.split(" ")[0];
+  const [y, m] = mesStr.split("-");
+  const nombres = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const mesNombre = nombres[parseInt(m)-1];
+  return `Hola ${nombreCorto}! 👋\n\nTe informo que el alquiler correspondiente al mes de *${mesNombre} ${y}* es de *${fmt(canon)}*.\n\nVencimiento: 10 de ${mesNombre} de ${y}.\n\nSin otro particular, saludos.`;
+}
+
+document.getElementById("wa-mes").addEventListener?.("change", function() {
+  if (!waCid) return;
+  const c = STATE.contratos.find(x => x.id === waCid);
+  document.getElementById("wa-mensaje").value = generarMensajeWA(c, this.value, canonActual(c));
+});
+
+function abrirWhatsapp() {
+  const tel = document.getElementById("wa-telefono").value.trim().replace(/\D/g,"");
+  const msg = document.getElementById("wa-mensaje").value.trim();
+  if (!tel) { toast("Ingresá el teléfono del inquilino"); return; }
+  const url = `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
+  window.open(url, "_blank");
+  closeModal("modal-whatsapp");
+}
+
+let eliminandoContratoId = null;
+function pedirEliminar(cid) {
+  eliminandoContratoId = cid;
+  openModal("modal-eliminar");
+}
+function confirmarEliminar() {
+  STATE.contratos = STATE.contratos.filter(x => x.id !== eliminandoContratoId);
+  closeModal("modal-eliminar");
+  save();
+  toast("Contrato eliminado");
+  showView("contratos");
+}
+
+// ══════════════════════════════════════════════════════════════
+// ACCIONES — PAGOS
+// ══════════════════════════════════════════════════════════════
 let pagoContratoId = null;
 function openModalPago(cid) {
   pagoContratoId = cid;
   const c = STATE.contratos.find(x => x.id === cid);
   document.getElementById("p-monto").value = canonActual(c);
   document.getElementById("p-fecha").value = new Date().toISOString().slice(0,10);
+  document.getElementById("p-mes").value = "";
   openModal("modal-pago");
 }
 
@@ -711,6 +1089,67 @@ function guardarPago() {
   save();
   renderDetalle();
   toast("Pago registrado ✓");
+}
+
+function eliminarPago(cid, mes) {
+  const idx = STATE.contratos.findIndex(x => x.id === cid);
+  STATE.contratos[idx].pagos = STATE.contratos[idx].pagos.filter(p => p.mes !== mes);
+  save();
+  renderDetalle();
+  toast("Pago eliminado");
+}
+
+// ══════════════════════════════════════════════════════════════
+// ACCIONES — AJUSTES IPC
+// ══════════════════════════════════════════════════════════════
+let editandoAjusteIdx = null;
+let editandoAjusteCid = null;
+
+function editarAjuste(cid, idx) {
+  const c = STATE.contratos.find(x => x.id === cid);
+  const a = c.ajustes[idx];
+  editandoAjusteCid = cid;
+  editandoAjusteIdx = idx;
+  document.getElementById("ea-desde").value = a.desde;
+  document.getElementById("ea-pct").value = a.porcentaje;
+  document.getElementById("ea-canon").value = a.canon;
+  openModal("modal-editar-ajuste");
+}
+
+function agregarAjusteManual(cid) {
+  editandoAjusteCid = cid;
+  editandoAjusteIdx = null;
+  document.getElementById("ea-desde").value = proximoAjusteMes(STATE.contratos.find(x => x.id === cid));
+  document.getElementById("ea-pct").value = "";
+  document.getElementById("ea-canon").value = "";
+  openModal("modal-editar-ajuste");
+}
+
+function guardarAjusteEditado() {
+  const desde = document.getElementById("ea-desde").value;
+  const pct = parseFloat(document.getElementById("ea-pct").value) || 0;
+  const canon = parseFloat(document.getElementById("ea-canon").value);
+  if (!desde || !canon) { toast("Completá desde y canon"); return; }
+  const idx = STATE.contratos.findIndex(x => x.id === editandoAjusteCid);
+  const ajuste = { desde, porcentaje: pct, canon };
+  if (editandoAjusteIdx !== null) {
+    STATE.contratos[idx].ajustes[editandoAjusteIdx] = ajuste;
+    toast("Ajuste actualizado ✓");
+  } else {
+    STATE.contratos[idx].ajustes = [...(STATE.contratos[idx].ajustes||[]), ajuste];
+    toast("Ajuste agregado ✓");
+  }
+  closeModal("modal-editar-ajuste");
+  save();
+  renderDetalle();
+}
+
+function eliminarAjuste(cid, ajIdx) {
+  const idx = STATE.contratos.findIndex(x => x.id === cid);
+  STATE.contratos[idx].ajustes.splice(ajIdx, 1);
+  save();
+  renderDetalle();
+  toast("Ajuste eliminado");
 }
 
 function aplicarAjuste(cid) {
