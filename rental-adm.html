@@ -313,6 +313,7 @@
         <div class="card" id="detalle-ajustes"></div>
       </div>
       <div class="grid-3" id="detalle-kpis"></div>
+      <div class="card" id="detalle-conceptos"></div>
       <div class="card" id="detalle-pagos"></div>
     </div>
   </div>
@@ -475,6 +476,54 @@
       <div class="grid-2" style="margin-top:4px">
         <button class="btn btn-ghost" onclick="closeModal('modal-mora')">Cerrar</button>
         <button class="btn btn-primary" onclick="registrarPagoConMora()">Registrar pago + mora</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Agregar concepto adicional -->
+<div id="modal-concepto" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title" id="modal-concepto-title">Agregar concepto adicional</div>
+    <div class="gap">
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <input id="concepto-desc" class="form-input" placeholder="Ej: Expensas, ABL, TGI Santo Tomé">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo</label>
+        <select id="concepto-tipo" class="form-input">
+          <option value="expensas">Expensas</option>
+          <option value="impuesto">Impuesto / Tasa</option>
+          <option value="servicio">Servicio</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-concepto')">Cancelar</button>
+        <button class="btn btn-green" onclick="guardarConcepto()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cargar monto mensual de concepto -->
+<div id="modal-monto-concepto" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">Cargar monto del mes</div>
+    <div class="gap">
+      <div id="monto-concepto-nombre" style="font-weight:700;color:var(--navy);font-size:15px"></div>
+      <div class="form-group">
+        <label class="form-label">Mes</label>
+        <input id="mc-mes" type="month" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Monto ($)</label>
+        <input id="mc-monto" type="number" class="form-input" placeholder="0">
+      </div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-monto-concepto')">Cancelar</button>
+        <button class="btn btn-green" onclick="guardarMontoConcepto()">Guardar</button>
       </div>
     </div>
   </div>
@@ -1063,6 +1112,47 @@ function renderDetalle() {
     { label: "Cuotas registradas", value: (c.pagos||[]).length, color: "var(--navy)" },
   ].map(k => `<div class="card kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.value}</div></div>`).join("");
 
+  // ── Conceptos adicionales ──
+  const conceptos = c.conceptos || [];
+  const hoy2 = new Date();
+  const mesActual2 = `${hoy2.getFullYear()}-${String(hoy2.getMonth()+1).padStart(2,"0")}`;
+  document.getElementById("detalle-conceptos").innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="card-title" style="margin:0">📋 Conceptos adicionales</div>
+      <button class="btn btn-ghost btn-sm" onclick="openModalConcepto('${c.id}')">+ Agregar</button>
+    </div>
+    ${conceptos.length === 0
+      ? `<div class="muted" style="font-size:13px">Sin conceptos adicionales. Agregá expensas, tasas, etc.</div>`
+      : conceptos.map((con, i) => {
+          const montoMes = (con.montos||{})[mesActual2];
+          const tipoColor = con.tipo === 'expensas' ? 'badge-navy' : con.tipo === 'impuesto' ? 'badge-amber' : 'badge-green';
+          return `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-weight:600;font-size:14px">${con.descripcion}</div>
+              <div style="margin-top:3px"><span class="badge ${tipoColor}">${con.tipo}</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="text-align:right">
+                <div style="font-size:11px;color:var(--muted)">${mesLabel(mesActual2)}</div>
+                <div style="font-weight:700;font-family:monospace;color:${montoMes !== undefined ? (montoMes === 0 ? 'var(--muted)' : 'var(--navy)') : 'var(--red)'}">
+                  ${montoMes !== undefined ? (montoMes === 0 ? 'No aplica' : fmt(montoMes)) : '⚠ Sin cargar'}
+                </div>
+              </div>
+              <button onclick="openModalMontoConcepto('${c.id}',${i})" style="background:var(--green-lt);color:var(--green);border:none;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer">$ Cargar</button>
+              <button onclick="eliminarConcepto('${c.id}',${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 4px">🗑</button>
+            </div>
+          </div>`;
+        }).join("")}
+    ${conceptos.length > 0 ? `
+    <div style="margin-top:12px;background:var(--green-lt);border-radius:8px;padding:12px">
+      <div style="font-size:12px;color:var(--muted)">Total adicionales ${mesLabel(mesActual2)}</div>
+      <div style="font-size:20px;font-weight:900;color:var(--green);font-family:monospace">
+        ${fmt(conceptos.reduce((s,con) => s + ((con.montos||{})[mesActual2] !== undefined ? (con.montos[mesActual2]||0) : 0), 0))}
+      </div>
+    </div>` : ''}
+  `;
+
   document.getElementById("detalle-pagos").innerHTML = `
     <div style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -1093,6 +1183,69 @@ function renderDetalle() {
     </table>
     </div>
   `;
+}
+
+// ══════════════════════════════════════════════════════════════
+// ACCIONES — CONCEPTOS ADICIONALES
+// ══════════════════════════════════════════════════════════════
+let conceptoCid = null;
+let conceptoIdx = null;
+
+function openModalConcepto(cid) {
+  conceptoCid = cid;
+  conceptoIdx = null;
+  document.getElementById("modal-concepto-title").textContent = "Agregar concepto adicional";
+  document.getElementById("concepto-desc").value = "";
+  document.getElementById("concepto-tipo").value = "expensas";
+  openModal("modal-concepto");
+}
+
+function guardarConcepto() {
+  const desc = document.getElementById("concepto-desc").value.trim();
+  const tipo = document.getElementById("concepto-tipo").value;
+  if (!desc) { toast("Ingresá una descripción"); return; }
+  const idx = STATE.contratos.findIndex(x => x.id === conceptoCid);
+  if (!STATE.contratos[idx].conceptos) STATE.contratos[idx].conceptos = [];
+  STATE.contratos[idx].conceptos.push({ descripcion: desc, tipo, montos: {} });
+  closeModal("modal-concepto");
+  save();
+  renderDetalle();
+  toast("Concepto agregado ✓");
+}
+
+function eliminarConcepto(cid, i) {
+  const idx = STATE.contratos.findIndex(x => x.id === cid);
+  STATE.contratos[idx].conceptos.splice(i, 1);
+  save();
+  renderDetalle();
+  toast("Concepto eliminado");
+}
+
+function openModalMontoConcepto(cid, i) {
+  conceptoCid = cid;
+  conceptoIdx = i;
+  const c = STATE.contratos.find(x => x.id === cid);
+  const con = c.conceptos[i];
+  document.getElementById("monto-concepto-nombre").textContent = con.descripcion;
+  const hoy = new Date();
+  const mes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`;
+  document.getElementById("mc-mes").value = mes;
+  document.getElementById("mc-monto").value = (con.montos||{})[mes] || "";
+  openModal("modal-monto-concepto");
+}
+
+function guardarMontoConcepto() {
+  const mes = document.getElementById("mc-mes").value;
+  const monto = parseFloat(document.getElementById("mc-monto").value);
+  if (!mes || isNaN(monto)) { toast("Completá mes y monto"); return; }
+  const idx = STATE.contratos.findIndex(x => x.id === conceptoCid);
+  if (!STATE.contratos[idx].conceptos[conceptoIdx].montos)
+    STATE.contratos[idx].conceptos[conceptoIdx].montos = {};
+  STATE.contratos[idx].conceptos[conceptoIdx].montos[mes] = monto;
+  closeModal("modal-monto-concepto");
+  save();
+  renderDetalle();
+  toast(`${mesLabel(mes)}: ${monto === 0 ? 'No aplica ($0)' : fmt(monto)} guardado ✓`);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1127,6 +1280,38 @@ function editarContrato(cid) {
   openModal("modal-contrato");
 }
 
+// Conceptos base que tienen todos los contratos
+const CONCEPTOS_BASE = [
+  { descripcion: "Expensas", tipo: "expensas", montos: {} },
+  { descripcion: "Inmobiliario API Santa Fe", tipo: "impuesto", montos: {} },
+  { descripcion: "TGI / Tasa Municipal", tipo: "impuesto", montos: {} },
+];
+
+function conceptosIniciales() {
+  return CONCEPTOS_BASE.map(c => ({ ...c, montos: {} }));
+}
+
+// Migrar contratos existentes que no tienen los conceptos base
+function migrarConceptosBase() {
+  let cambios = false;
+  STATE.contratos.forEach((c, idx) => {
+    if (!c.conceptos) {
+      STATE.contratos[idx].conceptos = conceptosIniciales();
+      cambios = true;
+    } else {
+      // Agregar los que falten sin pisar los existentes
+      CONCEPTOS_BASE.forEach(base => {
+        const existe = c.conceptos.some(x => x.descripcion === base.descripcion);
+        if (!existe) {
+          STATE.contratos[idx].conceptos.unshift({ ...base, montos: {} });
+          cambios = true;
+        }
+      });
+    }
+  });
+  if (cambios) save();
+}
+
 function guardarContrato() {
   const inq = document.getElementById("f-inquilino").value.trim();
   const prop = document.getElementById("f-propiedad").value.trim();
@@ -1143,7 +1328,7 @@ function guardarContrato() {
     STATE.contratos[idx] = { ...STATE.contratos[idx], inquilino: inq, propiedad: prop, inicio, fin, canonInicial: canon, ajusteMeses: ajuste, telefono, tasaMora };
     toast("Contrato actualizado ✓");
   } else {
-    STATE.contratos.push({ id: uid(), inquilino: inq, propiedad: prop, inicio, fin, canonInicial: canon, ajusteMeses: ajuste, telefono, tasaMora, pagos: [], ajustes: [], deposito: canon });
+    STATE.contratos.push({ id: uid(), inquilino: inq, propiedad: prop, inicio, fin, canonInicial: canon, ajusteMeses: ajuste, telefono, tasaMora, pagos: [], ajustes: [], deposito: canon, conceptos: conceptosIniciales() });
     toast("Contrato guardado ✓");
   }
   closeModal("modal-contrato");
@@ -1251,7 +1436,22 @@ function generarMensajeWA(c, mesStr, canon) {
   const [y, m] = mesStr.split("-");
   const nombres = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
   const mesNombre = nombres[parseInt(m)-1];
-  return `Hola ${nombreCorto}! 👋\n\nTe informo que el alquiler correspondiente al mes de *${mesNombre} ${y}* es de *${fmt(canon)}*.\n\nVencimiento: 10 de ${mesNombre} de ${y}.\n\nSin otro particular, saludos.`;
+
+  // Conceptos adicionales del mes
+  const conceptos = (c.conceptos||[]).filter(con => (con.montos||{})[mesStr]);
+  const totalAdicionales = conceptos.reduce((s, con) => s + (con.montos[mesStr]||0), 0);
+  const totalGeneral = canon + totalAdicionales;
+
+  let detalle = `• Alquiler:     ${fmt(canon)}`;
+  conceptos.forEach(con => {
+    const label = con.descripcion.padEnd(14);
+    detalle += `\n• ${label} ${fmt(con.montos[mesStr])}`;
+  });
+  if (conceptos.length > 0) {
+    detalle += `\n${"─".repeat(35)}\n• TOTAL:        ${fmt(totalGeneral)}`;
+  }
+
+  return `Hola ${nombreCorto}! 👋\n\nLiquidación *${mesNombre} ${y}*:\n\n${detalle}\n\nVencimiento: 10 de ${mesNombre} de ${y}.\n\nSaludos!`;
 }
 
 document.getElementById("wa-mes").addEventListener?.("change", function() {
@@ -1534,7 +1734,7 @@ document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", 
 // ══════════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════════
-function renderAll() { renderDashboard(); renderContratos(); renderIpcTabla(); }
+function renderAll() { migrarConceptosBase(); renderDashboard(); renderContratos(); renderIpcTabla(); }
 
 window.addEventListener("load", () => {
   const cid = getClientId();
