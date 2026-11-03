@@ -1,0 +1,1907 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>RENTAL ADM</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  /* ── Reset & base ── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F0EDE6;
+    --surface: #FFFFFF;
+    --navy: #1B2B3A;
+    --navy2: #2E4559;
+    --green: #3D7A5B;
+    --green-lt: #EAF3EE;
+    --red: #B83228;
+    --red-lt: #FCECEA;
+    --amber: #B8820A;
+    --amber-lt: #FEF5E0;
+    --border: #D8D0C6;
+    --muted: #7A7268;
+    --radius: 10px;
+    --shadow: 0 1px 4px rgba(0,0,0,.08);
+  }
+  body { background: var(--bg); font-family: 'Inter', system-ui, -apple-system, sans-serif; color: var(--navy); min-height: 100vh; font-size: 15px; }
+
+  /* ── Header ── */
+  #header { background: var(--navy); color: #fff; padding: 0 20px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  #header-inner { max-width: 900px; margin: 0 auto; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  #logo { font-weight: 900; font-size: 15px; letter-spacing: 2px; padding: 16px 0; color: #fff; flex-shrink: 0; }
+  #nav { display: flex; gap: 2px; flex: 1; }
+  .nav-btn { background: transparent; border: none; color: rgba(255,255,255,.55); cursor: pointer; padding: 18px 14px; font-weight: 600; font-size: 13px; border-bottom: 2px solid transparent; transition: all .15s; white-space: nowrap; }
+  .nav-btn.active { color: #fff; border-bottom-color: #fff; }
+  #auth-area { display: flex; align-items: center; gap: 10px; padding: 10px 0; margin-left: auto; }
+  #sync-status { font-size: 12px; color: rgba(255,255,255,.6); }
+  #sync-btn { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  #user-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3); }
+
+  /* ── Layout ── */
+  #content { max-width: 900px; margin: 0 auto; padding: 24px 16px 60px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── Cards ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
+  .card-title { font-weight: 700; font-size: 14px; color: var(--navy); margin-bottom: 14px; }
+
+  /* ── Grid ── */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .gap { display: grid; gap: 16px; }
+  @media (max-width: 600px) {
+    .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+    .nav-btn { padding: 14px 10px; font-size: 12px; }
+  }
+
+  /* ── KPI ── */
+  .kpi { text-align: left; }
+  .kpi-label { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .kpi-value { font-size: 26px; font-weight: 900; font-family: 'Courier New', monospace; }
+
+  /* ── Badges ── */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: .3px; }
+  .badge-green { background: var(--green-lt); color: var(--green); }
+  .badge-red { background: var(--red-lt); color: var(--red); }
+  .badge-amber { background: var(--amber-lt); color: var(--amber); }
+  .badge-navy { background: #E6ECF1; color: var(--navy); }
+
+  /* ── Buttons ── */
+  .btn { border: none; border-radius: 7px; cursor: pointer; font-weight: 700; font-size: 14px; padding: 10px 20px; transition: opacity .15s; }
+  .btn:hover { opacity: .85; }
+  .btn-primary { background: var(--navy); color: #fff; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-red { background: var(--red); color: #fff; }
+  .btn-ghost { background: transparent; color: var(--navy); border: 1px solid var(--border); }
+  .btn-sm { font-size: 12px; padding: 6px 14px; border-radius: 6px; }
+
+  /* ── Forms ── */
+  .form-group { display: grid; gap: 5px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .form-input { padding: 9px 12px; border: 1px solid var(--border); border-radius: 7px; font-size: 14px; width: 100%; outline: none; transition: border-color .15s; }
+  .form-input:focus { border-color: var(--navy); }
+  select.form-input { background: #fff; }
+
+  /* ── Table ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 10px; color: var(--muted); font-size: 11px; font-weight: 700; border-bottom: 2px solid var(--border); text-transform: uppercase; letter-spacing: .5px; }
+  td { padding: 10px 10px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+
+  /* ── Contrato card ── */
+  .contrato-card { cursor: pointer; transition: box-shadow .15s; }
+  .contrato-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.1); }
+  .contrato-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .contrato-name { font-weight: 700; font-size: 16px; }
+  .contrato-prop { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .contrato-badges { margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .contrato-canon { text-align: right; flex-shrink: 0; }
+  .canon-label { font-size: 11px; color: var(--muted); }
+  .canon-value { font-size: 22px; font-weight: 900; color: var(--green); font-family: 'Courier New', monospace; }
+
+  /* ── Alerts ── */
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; }
+  .alert-amber { background: var(--amber-lt); color: var(--amber); border: 1px solid #F0D080; }
+  .alert-red { background: var(--red-lt); color: var(--red); border: 1px solid #EAACAA; }
+  .alert-green { background: var(--green-lt); color: var(--green); border: 1px solid #AACFBA; }
+
+  /* ── Misc ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+  .mono { font-family: 'Courier New', monospace; font-weight: 700; }
+  .muted { color: var(--muted); }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .row-item { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .row-item:last-child { border-bottom: none; }
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .section-title { font-size: 17px; font-weight: 800; color: var(--navy); }
+
+  /* ── Login screen ── */
+  #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; gap: 24px; text-align: center; padding: 20px; }
+  #login-screen h1 { font-size: 28px; font-weight: 900; letter-spacing: 3px; }
+  #login-screen p { color: var(--muted); max-width: 340px; }
+  #client-id-input { width: 100%; max-width: 400px; padding: 12px 16px; border: 2px solid var(--border); border-radius: 8px; font-size: 14px; font-family: monospace; }
+
+  /* ── Ajuste box ── */
+  .ajuste-box { background: var(--amber-lt); border-radius: 8px; padding: 12px 14px; margin-bottom: 10px; }
+  .ajuste-desde { font-weight: 700; font-size: 14px; }
+  .ajuste-pct { font-size: 12px; color: var(--muted); }
+  .ajuste-canon { font-size: 18px; font-weight: 900; color: var(--amber); font-family: 'Courier New', monospace; }
+
+  /* ── Toast ── */
+  #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--navy); color: #fff; padding: 10px 20px; border-radius: 30px; font-size: 13px; font-weight: 600; z-index: 999; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  #toast.show { opacity: 1; }
+
+  /* ── Modal ── */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+  .modal-bg.open { display: flex; }
+  .modal { background: #fff; border-radius: 12px; padding: 24px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; }
+  .modal-title { font-size: 16px; font-weight: 800; margin-bottom: 18px; }
+  .cc-table th, .cc-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .cc-table th { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; }
+  .cc-table tr.cc-saldo-neg { background: #FEF9F9; }
+  .cc-table tr.cc-saldo-pos { background: #F0FAF4; }
+  .cc-saldo-neg-val { color: var(--red); font-weight: 700; }
+  .cc-saldo-pos-val { color: var(--green); font-weight: 700; }
+  .cc-resumen { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+  @media (max-width: 600px) { .cc-resumen { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Banner: compartir archivo Drive -->
+<div id="file-id-banner" style="display:none;background:#1B2B3A;color:#fff;padding:12px 20px;font-size:13px;text-align:center">
+  📁 Archivo creado en Drive. Para que otra cuenta acceda, compartí este ID:
+  <strong id="file-id-display" style="font-family:monospace;margin:0 10px;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:4px"></strong>
+  <button onclick="copiarFileId()" style="background:rgba(255,255,255,.2);border:none;color:#fff;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px">Copiar</button>
+  <button onclick="document.getElementById('file-id-banner').style.display='none'" style="background:transparent;border:none;color:rgba(255,255,255,.5);cursor:pointer;margin-left:8px">✕</button>
+</div>
+
+<!-- Modal: vincular ID de archivo compartido -->
+<div id="modal-vincular" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">Vincular archivo compartido</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">
+      Si otra cuenta ya tiene el archivo de datos, pegá el ID del archivo de Drive para sincronizar los mismos datos.
+    </p>
+    <div class="form-group">
+      <label class="form-label">ID del archivo Drive</label>
+      <input id="shared-file-id-input" class="form-input" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms" style="font-family:monospace;font-size:12px">
+    </div>
+    <div class="grid-2" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-vincular')">Cancelar</button>
+      <button class="btn btn-primary" onclick="vincularArchivo()">Vincular y cargar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Header -->
+<div id="header">
+  <div id="header-inner">
+    <div id="logo">🏠 RENTAL ADM</div>
+    <div id="nav">
+      <button class="nav-btn active" onclick="showView('dashboard')">Dashboard</button>
+      <button class="nav-btn" onclick="showView('contratos')">Contratos</button>
+      <button class="nav-btn" onclick="showView('calculadora')">IPC</button>
+      <button class="nav-btn" onclick="showView('cuentacorriente')">Cta. Corriente</button>
+    </div>
+    <div id="auth-area">
+      <span id="sync-status">No conectado</span>
+      <button onclick="openModal('modal-exportar')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:6px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer">⬇ Exportar</button>
+      <button id="vincular-btn" onclick="openModal('modal-vincular')" style="display:none;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.7);padding:6px 12px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer">Vincular ID</button>
+      <button id="sync-btn" onclick="handleAuth()">Conectar Drive</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Exportar CSV -->
+<div id="modal-exportar" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">⬇ Exportar a Google Sheets</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px">
+      Elegí qué información exportar. Se descarga un archivo CSV que podés abrir directamente en Google Sheets.
+    </p>
+    <div class="gap">
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer">
+        <input type="checkbox" id="exp-contratos" checked style="width:16px;height:16px"> Contratos (datos generales)
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer">
+        <input type="checkbox" id="exp-pagos" checked style="width:16px;height:16px"> Historial de pagos
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer">
+        <input type="checkbox" id="exp-ajustes" checked style="width:16px;height:16px"> Ajustes IPC aplicados
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;font-size:14px;cursor:pointer">
+        <input type="checkbox" id="exp-mora" checked style="width:16px;height:16px"> Resumen de mora por inquilino
+      </label>
+      <hr class="divider">
+      <div style="background:#F0F4F8;border-radius:8px;padding:12px;font-size:12px;color:var(--muted)">
+        💡 Para abrir en Google Sheets: descargá el archivo → abrí Sheets → Archivo → Importar → subí el CSV → separador: coma.
+      </div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-exportar')">Cancelar</button>
+        <button class="btn btn-green" onclick="exportarCSV()">⬇ Descargar CSV</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Login / Client ID setup -->
+<div id="setup-screen" style="display:none">
+  <div id="login-screen">
+    <h1>RENTAL ADM</h1>
+    <p>Para sincronizar datos entre dispositivos, ingresá tu Google Client ID del proyecto <strong>RENTAL ADM</strong>.</p>
+    <input id="client-id-input" class="form-input" placeholder="xxxx.apps.googleusercontent.com" />
+    <button class="btn btn-primary" onclick="saveClientId()">Guardar y conectar</button>
+    <button class="btn btn-ghost btn-sm" onclick="skipSetup()">Usar sin Drive (solo este dispositivo)</button>
+    <details style="max-width:400px; text-align:left; font-size:12px; color:var(--muted)">
+      <summary style="cursor:pointer; font-weight:600; margin-bottom:6px">¿Cómo obtengo el Client ID?</summary>
+      <ol style="padding-left:16px; line-height:2">
+        <li>Ir a <strong>console.cloud.google.com</strong></li>
+        <li>Seleccionar proyecto <strong>RENTAL ADM</strong></li>
+        <li>APIs y servicios → Credenciales</li>
+        <li>Crear credencial → ID de cliente OAuth 2.0</li>
+        <li>Tipo: <strong>Aplicación web</strong></li>
+        <li>Orígenes: agregar <code>null</code> (para archivos locales)</li>
+        <li>Copiar el Client ID generado</li>
+      </ol>
+    </details>
+  </div>
+</div>
+
+<!-- Main content -->
+<div id="content">
+  <!-- DASHBOARD -->
+  <div id="view-dashboard" class="view active">
+    <div class="gap">
+      <!-- KPIs -->
+      <div class="grid-4" id="kpi-grid"></div>
+
+      <!-- Mes actual: cobrado vs pendiente -->
+      <div class="card" id="mes-actual-card"></div>
+
+      <!-- Gráficos -->
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title">📊 Ingresos mensuales cobrados</div>
+          <canvas id="chart-ingresos" height="180"></canvas>
+        </div>
+        <div class="card">
+          <div class="card-title">🥧 Estado de pagos</div>
+          <div style="display:flex;align-items:center;gap:20px">
+            <canvas id="chart-estado" width="160" height="160" style="flex-shrink:0"></canvas>
+            <div id="chart-estado-legend" style="font-size:13px;display:grid;gap:8px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Canon por contrato -->
+      <div class="card">
+        <div class="card-title">🏠 Canon actual por contrato</div>
+        <canvas id="chart-canon" height="120"></canvas>
+      </div>
+
+      <!-- Alertas vencimiento + mora + ajustes -->
+      <div class="grid-2">
+        <div class="card" id="vencimientos-card"></div>
+        <div class="card" id="mora-card"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card" id="pendientes-card"></div>
+        <div class="card" id="ajustes-card"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTRATOS -->
+  <div id="view-contratos" class="view">
+    <div class="gap">
+      <div class="section-header">
+        <div class="section-title">Contratos</div>
+        <button class="btn btn-primary btn-sm" onclick="openModalContrato()">+ Nuevo contrato</button>
+      </div>
+      <div id="contratos-list" class="gap"></div>
+    </div>
+  </div>
+
+  <!-- DETALLE -->
+  <div id="view-detalle" class="view">
+    <div class="gap">
+      <div class="row">
+        <button class="btn btn-ghost btn-sm" onclick="showView('contratos')">← Volver</button>
+        <div id="detalle-title" class="section-title"></div>
+      </div>
+      <div class="grid-2">
+        <div class="card" id="detalle-info"></div>
+        <div class="card" id="detalle-ajustes"></div>
+      </div>
+      <div class="grid-3" id="detalle-kpis"></div>
+      <div class="card" id="detalle-conceptos"></div>
+      <div class="card" id="detalle-pagos"></div>
+    </div>
+  </div>
+
+  <!-- CALCULADORA IPC -->
+  <div id="view-calculadora" class="view">
+    <div style="max-width:480px">
+      <div class="section-title" style="margin-bottom:16px">Calculadora de ajuste IPC</div>
+      <div class="card gap">
+        <div class="form-group">
+          <label class="form-label">Canon base ($)</label>
+          <input id="calc-canon" type="number" class="form-input" placeholder="1200000">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">Desde</label>
+            <input id="calc-desde" type="month" class="form-input" value="2026-01">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Hasta</label>
+            <input id="calc-hasta" type="month" class="form-input" value="2026-04">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="calcularIPC()">Calcular ajuste</button>
+        <div id="calc-resultado" style="display:none" class="ajuste-box">
+          <div class="ajuste-pct">IPC acumulado: <span id="calc-pct"></span></div>
+          <div style="margin-top:8px; font-size:12px; color:var(--muted)">Nuevo canon</div>
+          <div class="ajuste-canon" id="calc-nuevo"></div>
+        </div>
+        <hr class="divider">
+        <div class="card-title">IPC INDEC cargados</div>
+        <div id="ipc-tabla" style="display:flex; flex-wrap:wrap; gap:8px"></div>
+        <div style="font-size:11px; color:var(--muted)">* Actualizá los valores mensualmente al publicar INDEC.</div>
+        <button class="btn btn-ghost btn-sm" onclick="openModalIPC()">+ Cargar nuevo IPC</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUENTA CORRIENTE -->
+  <div id="view-cuentacorriente" class="view">
+    <div class="gap">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <div class="section-title" style="margin:0">📒 Cuenta Corriente</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select id="cc-selector" class="form-input" style="width:auto;min-width:200px" onchange="contratoActualId=this.value;renderCuentaCorriente(this.value)">
+            <option value="">— Elegir contrato —</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="showView('detalle')">← Volver al detalle</button>
+        </div>
+      </div>
+      <div id="cc-content"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Nuevo / Editar contrato -->
+<div id="modal-contrato" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title" id="modal-contrato-title">Nuevo contrato</div>
+    <div class="gap">
+      <div class="form-group"><label class="form-label">Inquilino</label><input id="f-inquilino" class="form-input" placeholder="Nombre completo"></div>
+      <div class="form-group"><label class="form-label">Propiedad</label><input id="f-propiedad" class="form-input" placeholder="Dirección"></div>
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label">Inicio</label><input id="f-inicio" type="date" class="form-input"></div>
+        <div class="form-group"><label class="form-label">Vencimiento</label><input id="f-fin" type="date" class="form-input"></div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group"><label class="form-label">Canon inicial ($)</label><input id="f-canon" type="number" class="form-input" placeholder="1200000"></div>
+        <div class="form-group"><label class="form-label">Ajuste</label>
+          <select id="f-ajuste" class="form-input">
+            <option value="3">Trimestral IPC</option>
+            <option value="4">Cuatrimestral IPC</option>
+            <option value="6">Semestral IPC</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Teléfono WhatsApp (con código país)</label>
+          <input id="f-telefono" class="form-input" placeholder="5493425551234" type="tel">
+          <span style="font-size:11px;color:var(--muted)">Ej: 549 + código de área + número</span>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tasa mora mensual % (BNA)</label>
+          <input id="f-tasa" type="number" step="0.01" class="form-input" placeholder="Ej: 5.5">
+          <span style="font-size:11px;color:var(--muted)">Se aplica desde el día 11 de cada mes</span>
+        </div>
+      </div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-contrato')">Cancelar</button>
+        <button class="btn btn-green" id="btn-guardar-contrato" onclick="guardarContrato()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirmar eliminar contrato -->
+<div id="modal-eliminar" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">⚠ Eliminar contrato</div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:20px">Esta acción no se puede deshacer. ¿Confirmás que querés eliminar este contrato y todos sus pagos?</p>
+    <div class="grid-2">
+      <button class="btn btn-ghost" onclick="closeModal('modal-eliminar')">Cancelar</button>
+      <button class="btn btn-red" onclick="confirmarEliminar()">Sí, eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Editar ajuste IPC -->
+<div id="modal-editar-ajuste" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">Editar ajuste IPC</div>
+    <div class="gap">
+      <div class="form-group"><label class="form-label">Desde (mes)</label><input id="ea-desde" type="month" class="form-input"></div>
+      <div class="form-group"><label class="form-label">IPC acumulado %</label><input id="ea-pct" type="number" step="0.01" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Canon resultante ($)</label><input id="ea-canon" type="number" class="form-input"></div>
+      <p style="font-size:12px;color:var(--muted)">Podés modificar el canon directamente si querés usar un valor distinto al calculado por IPC.</p>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-editar-ajuste')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarAjusteEditado()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Calcular intereses por mora -->
+<div id="modal-mora" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">⏱ Intereses por pago fuera de término</div>
+    <div class="gap">
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Vencimiento (día 10 del mes)</label>
+          <input id="mora-vto" type="date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fecha de pago efectivo</label>
+          <input id="mora-pago" type="date" class="form-input" onchange="calcularMora()">
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Monto del alquiler ($)</label>
+          <input id="mora-monto" type="number" class="form-input" onchange="calcularMora()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tasa mora mensual %</label>
+          <input id="mora-tasa" type="number" step="0.01" class="form-input" onchange="calcularMora()">
+        </div>
+      </div>
+      <div id="mora-resultado" style="display:none">
+        <hr class="divider">
+        <div style="display:grid;gap:8px">
+          <div class="row-item">
+            <span class="muted">Días de mora</span>
+            <span id="mora-dias" style="font-weight:700"></span>
+          </div>
+          <div class="row-item">
+            <span class="muted">Tasa diaria efectiva</span>
+            <span id="mora-tasa-diaria" style="font-weight:700"></span>
+          </div>
+          <div class="row-item">
+            <span class="muted">Interés moratorio</span>
+            <span id="mora-interes" style="font-weight:700;color:var(--amber)"></span>
+          </div>
+          <div class="row-item" id="mora-punitorio-row" style="display:none">
+            <span class="muted">Interés punitorio (×2 desde día 31)</span>
+            <span id="mora-punitorio" style="font-weight:700;color:var(--red)"></span>
+          </div>
+          <div style="background:var(--red-lt);border-radius:8px;padding:12px;margin-top:4px">
+            <div style="font-size:12px;color:var(--muted)">TOTAL A COBRAR</div>
+            <div id="mora-total" style="font-size:24px;font-weight:900;color:var(--red);font-family:monospace"></div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:4px">
+        <button class="btn btn-ghost" onclick="closeModal('modal-mora')">Cerrar</button>
+        <button class="btn btn-primary" onclick="registrarPagoConMora()">Registrar pago + mora</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Agregar concepto adicional -->
+<div id="modal-concepto" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title" id="modal-concepto-title">Agregar concepto adicional</div>
+    <div class="gap">
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <input id="concepto-desc" class="form-input" placeholder="Ej: Expensas, ABL, TGI Santo Tomé">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tipo</label>
+        <select id="concepto-tipo" class="form-input">
+          <option value="expensas">Expensas</option>
+          <option value="impuesto">Impuesto / Tasa</option>
+          <option value="servicio">Servicio</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-concepto')">Cancelar</button>
+        <button class="btn btn-green" onclick="guardarConcepto()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cargar monto mensual de concepto -->
+<div id="modal-monto-concepto" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">Cargar monto del mes</div>
+    <div class="gap">
+      <div id="monto-concepto-nombre" style="font-weight:700;color:var(--navy);font-size:15px"></div>
+      <div class="form-group">
+        <label class="form-label">Mes</label>
+        <input id="mc-mes" type="month" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Monto ($)</label>
+        <input id="mc-monto" type="number" class="form-input" placeholder="0">
+      </div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-monto-concepto')">Cancelar</button>
+        <button class="btn btn-green" onclick="guardarMontoConcepto()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: WhatsApp aviso alquiler -->
+<div id="modal-whatsapp" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">📱 Enviar aviso por WhatsApp</div>
+    <div class="gap">
+      <div class="form-group">
+        <label class="form-label">Teléfono del inquilino</label>
+        <input id="wa-telefono" class="form-input" placeholder="5493425551234">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mes a avisar</label>
+        <input id="wa-mes" type="month" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mensaje</label>
+        <textarea id="wa-mensaje" class="form-input" rows="6" style="resize:vertical;font-size:13px"></textarea>
+      </div>
+      <p style="font-size:11px;color:var(--muted)">Se va a abrir WhatsApp Web o la app con el mensaje listo. Solo tocás Enviar.</p>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-whatsapp')">Cancelar</button>
+        <button class="btn btn-green" onclick="abrirWhatsapp()">📲 Abrir WhatsApp</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Registrar pago -->
+<div id="modal-pago" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">Registrar pago</div>
+    <div class="gap">
+      <div class="form-group"><label class="form-label">Mes</label><input id="p-mes" type="month" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Monto ($)</label><input id="p-monto" type="number" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Fecha de pago</label><input id="p-fecha" type="date" class="form-input"></div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-pago')">Cancelar</button>
+        <button class="btn btn-green" onclick="guardarPago()">Registrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Cargar IPC -->
+<div id="modal-ipc" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">Cargar IPC mensual</div>
+    <div class="gap">
+      <div class="form-group"><label class="form-label">Mes</label><input id="ipc-mes" type="month" class="form-input"></div>
+      <div class="form-group"><label class="form-label">Variación % (ej: 3.4)</label><input id="ipc-val" type="number" step="0.01" class="form-input" placeholder="3.4"></div>
+      <div class="grid-2">
+        <button class="btn btn-ghost" onclick="closeModal('modal-ipc')">Cancelar</button>
+        <button class="btn btn-primary" onclick="guardarIPC()">Guardar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+let STATE = {
+  contratos: [],
+  ipc: {
+    "2026-01": 2.9,
+    "2026-02": 2.9,
+    "2026-03": 3.4,
+    "2026-04": 2.8,
+  }
+};
+let contratoActualId = null;
+let driveFileId = null;
+let tokenClient = null;
+let accessToken = null;
+const DRIVE_FILENAME = "rental-adm-data.json";
+// ID del archivo compartido — se guarda la primera vez que se crea
+function getSharedFileId() { return localStorage.getItem("rental_drive_file_id") || null; }
+function setSharedFileId(id) { localStorage.setItem("rental_drive_file_id", id); }
+
+// ══════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════
+function fmt(n) {
+  return new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
+}
+function fmtFecha(s) {
+  if (!s) return "—";
+  const [y, m, d] = s.split("-");
+  return `${d}/${m}/${y}`;
+}
+function mesLabel(s) {
+  if (!s) return "—";
+  const [y, m] = s.split("-");
+  const n = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  return `${n[parseInt(m)-1]} ${y}`;
+}
+function diasParaVencer(fin) {
+  return Math.ceil((new Date(fin) - new Date()) / 86400000);
+}
+function canonActual(c) {
+  return c.ajustes?.at(-1)?.canon ?? c.canonInicial;
+}
+function proximoAjusteMes(c) {
+  const base = c.ajustes?.at(-1)?.desde ?? c.inicio.slice(0,7);
+  const [y, m] = base.split("-").map(Number);
+  const meses = parseInt(c.ajusteMeses ?? 3);
+  const d = new Date(y, m - 1 + meses, 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+}
+function calcIpcAcumulado(desde, hasta) {
+  let acc = 1, [y, m] = desde.split("-").map(Number);
+  const [hy, hm] = hasta.split("-").map(Number);
+  while (y < hy || (y === hy && m <= hm)) {
+    const k = `${y}-${String(m).padStart(2,"0")}`;
+    if (STATE.ipc[k]) acc *= (1 + STATE.ipc[k] / 100);
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return acc - 1;
+}
+function toast(msg) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  setTimeout(() => t.classList.remove("show"), 2500);
+}
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+// ══════════════════════════════════════════════════════════════
+// GOOGLE DRIVE SYNC
+// ══════════════════════════════════════════════════════════════
+function getClientId() { return localStorage.getItem("rental_client_id") || ""; }
+function saveClientId() {
+  const v = document.getElementById("client-id-input").value.trim();
+  if (!v) return;
+  localStorage.setItem("rental_client_id", v);
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("content").style.display = "block";
+  initGoogleAuth();
+}
+function skipSetup() {
+  localStorage.setItem("rental_client_id", "offline");
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("content").style.display = "block";
+  loadLocalData();
+  renderAll();
+}
+
+function initGoogleAuth() {
+  const cid = getClientId();
+  if (!cid || cid === "offline") { loadLocalData(); renderAll(); return; }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: cid,
+    scope: "https://www.googleapis.com/auth/drive.file",
+    callback: async (resp) => {
+      if (resp.error) { toast("Error de autenticación"); return; }
+      accessToken = resp.access_token;
+      document.getElementById("sync-status").textContent = "Drive conectado ✓";
+      document.getElementById("sync-btn").textContent = "Sincronizar";
+      await loadFromDrive();
+      renderAll();
+    }
+  });
+}
+
+function handleAuth() {
+  const cid = getClientId();
+  if (!cid || cid === "offline") {
+    document.getElementById("setup-screen").style.display = "block";
+    document.getElementById("content").style.display = "none";
+    return;
+  }
+  if (!tokenClient) { initGoogleAuth(); }
+  tokenClient.requestAccessToken({ prompt: accessToken ? "" : "consent" });
+}
+
+async function loadFromDrive() {
+  try {
+    // Intentar con file ID guardado localmente (funciona para cualquier cuenta con acceso)
+    driveFileId = getSharedFileId();
+    if (driveFileId) {
+      const r = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      if (r.ok) {
+        STATE = await r.json();
+        toast("Datos cargados desde Drive ✓");
+        return;
+      }
+    }
+    // Buscar por nombre en Drive de la cuenta conectada
+    const r = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=name='${DRIVE_FILENAME}'+and+trashed=false&fields=files(id,name)`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const data = await r.json();
+    if (data.files?.length > 0) {
+      driveFileId = data.files[0].id;
+      setSharedFileId(driveFileId);
+      const r2 = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${driveFileId}?alt=media`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      STATE = await r2.json();
+      toast("Datos cargados desde Drive ✓");
+    } else {
+      loadLocalData();
+      await saveToDrive();
+    }
+  } catch(e) { loadLocalData(); toast("Error al leer Drive, usando datos locales"); }
+}
+
+async function saveToDrive() {
+  if (!accessToken) { saveLocal(); return; }
+  saveLocal();
+  try {
+    const blob = new Blob([JSON.stringify(STATE)], { type: "application/json" });
+    let url, method;
+    const form = new FormData();
+    if (driveFileId) {
+      url = `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=multipart`;
+      method = "PATCH";
+      form.append("metadata", new Blob([JSON.stringify({})], { type: "application/json" }));
+    } else {
+      url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
+      method = "POST";
+      form.append("metadata", new Blob([JSON.stringify({ name: DRIVE_FILENAME })], { type: "application/json" }));
+    }
+    form.append("file", blob);
+    const r = await fetch(url, { method, headers: { Authorization: `Bearer ${accessToken}` }, body: form });
+    const d = await r.json();
+    if (!driveFileId) {
+      driveFileId = d.id;
+      setSharedFileId(driveFileId);
+      // Mostrar ID para que lo comparta con la otra cuenta
+      document.getElementById("file-id-display").textContent = driveFileId;
+      document.getElementById("file-id-banner").style.display = "block";
+    }
+    toast("Guardado en Drive ✓");
+  } catch(e) { toast("Error al guardar en Drive"); }
+}
+
+function saveLocal() { localStorage.setItem("rental_state", JSON.stringify(STATE)); }
+function loadLocalData() {
+  const s = localStorage.getItem("rental_state");
+  if (s) { try { STATE = JSON.parse(s); } catch(e) {} }
+}
+function save() { saveToDrive(); }
+
+// ══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════
+function showView(id) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+  document.getElementById(`view-${id}`).classList.add("active");
+  const map = { dashboard: 0, contratos: 1, calculadora: 2, cuentacorriente: 3 };
+  if (map[id] !== undefined) document.querySelectorAll(".nav-btn")[map[id]].classList.add("active");
+  if (id === "dashboard") renderDashboard();
+  if (id === "contratos") renderContratos();
+  if (id === "calculadora") renderIpcTabla();
+  if (id === "detalle") renderDetalle();
+  if (id === "cuentacorriente") {
+    // populate selector
+    const sel = document.getElementById("cc-selector");
+    sel.innerHTML = '<option value="">— Elegir contrato —</option>' +
+      STATE.contratos.map(c => `<option value="${c.id}">${c.inquilino} — ${c.propiedad||''}</option>`).join("");
+    if (contratoActualId) {
+      sel.value = contratoActualId;
+      renderCuentaCorriente(contratoActualId);
+    } else {
+      document.getElementById("cc-content").innerHTML = '<p style="color:var(--muted);font-size:13px">Seleccioná un contrato para ver la cuenta corriente.</p>';
+    }
+  }
+}
+
+function verCuentaCorriente(cid) {
+  contratoActualId = cid;
+  showView('cuentacorriente');
+}
+
+function canonEnMes(c, mes) {
+  if (!c.ajustes || c.ajustes.length === 0) return c.canonInicial;
+  // find last ajuste whose desde <= mes
+  let canon = c.canonInicial;
+  for (const a of c.ajustes) {
+    if (a.desde <= mes) canon = a.canon;
+    else break;
+  }
+  return canon;
+}
+
+function renderCuentaCorriente(cid) {
+  const c = STATE.contratos.find(x => x.id === cid);
+  if (!c) return;
+  const hoy = new Date();
+  const todayMes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`;
+  const finMes = c.fin ? c.fin.slice(0,7) : todayMes;
+  const hasta = finMes < todayMes ? finMes : todayMes;
+  const desde = c.inicio.slice(0,7);
+
+  // iterate months
+  const rows = [];
+  let [y, m] = desde.split("-").map(Number);
+  const [hy, hm] = hasta.split("-").map(Number);
+  let saldoAcum = 0;
+  let totDevengado = 0, totPagado = 0, totMora = 0;
+
+  while (y < hy || (y === hy && m <= hm)) {
+    const mes = `${y}-${String(m).padStart(2,"0")}`;
+    const canon = canonEnMes(c, mes);
+    // adicionales
+    const adicionales = (c.conceptos||[]).reduce((s, con) => s + ((con.montos||{})[mes]||0), 0);
+    const devengado = canon + adicionales;
+    // pagos
+    const pagos = (c.pagos||[]).filter(p => p.mes === mes);
+    const pagadoMonto = pagos.filter(p => p.pagado).reduce((s,p) => s + (p.monto||0), 0);
+    const mora = pagos.filter(p => p.pagado).reduce((s,p) => s + (p.mora||0), 0);
+    const pagado = pagadoMonto + mora;
+    const saldoMes = pagado - devengado;
+    saldoAcum += saldoMes;
+    totDevengado += devengado;
+    totPagado += pagado;
+    totMora += mora;
+
+    let estado, estadoClass;
+    if (pagadoMonto === 0) { estado = 'Pendiente'; estadoClass = 'badge-red'; }
+    else if (pagadoMonto >= devengado) { estado = saldoMes > 0 ? 'Adelanto' : 'Pagado'; estadoClass = saldoMes > 0 ? 'badge' : 'badge-green'; }
+    else { estado = 'Parcial'; estadoClass = 'badge'; }
+
+    rows.push({ mes, canon, adicionales, devengado, pagado: pagadoMonto, mora, saldoMes, saldoAcum, estado, estadoClass });
+
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+
+  const saldoNeto = saldoAcum;
+  document.getElementById("cc-content").innerHTML = `
+    <div class="card" style="overflow-x:auto">
+      <table class="cc-table" style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th style="text-align:left">Mes</th>
+            <th style="text-align:right">Canon</th>
+            <th style="text-align:right">Adicionales</th>
+            <th style="text-align:right">Total devengado</th>
+            <th style="text-align:right">Pagado</th>
+            <th style="text-align:right">Mora</th>
+            <th style="text-align:right">Saldo mes</th>
+            <th style="text-align:right">Saldo acum.</th>
+            <th style="text-align:center">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr class="${r.saldoMes < 0 ? 'cc-saldo-neg' : r.saldoMes > 0 ? 'cc-saldo-pos' : ''}">
+              <td style="font-weight:600">${mesLabel(r.mes)}</td>
+              <td style="text-align:right" class="mono">${fmt(r.canon)}</td>
+              <td style="text-align:right" class="mono">${r.adicionales ? fmt(r.adicionales) : '—'}</td>
+              <td style="text-align:right" class="mono">${fmt(r.devengado)}</td>
+              <td style="text-align:right" class="mono">${r.pagado ? fmt(r.pagado) : '—'}</td>
+              <td style="text-align:right" class="mono" style="color:var(--amber)">${r.mora ? fmt(r.mora) : '—'}</td>
+              <td style="text-align:right" class="mono ${r.saldoMes < 0 ? 'cc-saldo-neg-val' : r.saldoMes > 0 ? 'cc-saldo-pos-val' : ''}">${r.saldoMes >= 0 ? '+' : ''}${fmt(r.saldoMes)}</td>
+              <td style="text-align:right" class="mono ${r.saldoAcum < 0 ? 'cc-saldo-neg-val' : r.saldoAcum > 0 ? 'cc-saldo-pos-val' : ''}">${r.saldoAcum >= 0 ? '+' : ''}${fmt(r.saldoAcum)}</td>
+              <td style="text-align:center"><span class="badge ${r.estadoClass}" style="${r.estado==='Adelanto'?'background:var(--navy-lt,#EEF2FF);color:var(--navy)':''}">${r.estado}</span></td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>
+    <div class="cc-resumen">
+      <div class="card" style="text-align:center">
+        <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:6px">Total devengado</div>
+        <div class="mono" style="font-size:18px;font-weight:900">${fmt(totDevengado)}</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:6px">Total cobrado</div>
+        <div class="mono" style="font-size:18px;font-weight:900;color:var(--green)">${fmt(totPagado)}</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:6px">Saldo neto</div>
+        <div class="mono ${saldoNeto < 0 ? 'cc-saldo-neg-val' : 'cc-saldo-pos-val'}" style="font-size:18px;font-weight:900">${saldoNeto >= 0 ? '+' : ''}${fmt(saldoNeto)}</div>
+      </div>
+      <div class="card" style="text-align:center">
+        <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:6px">Total mora cobrada</div>
+        <div class="mono" style="font-size:18px;font-weight:900;color:var(--amber)">${fmt(totMora)}</div>
+      </div>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER: DASHBOARD
+// ══════════════════════════════════════════════════════════════
+let chartIngresos = null, chartEstado = null, chartCanon = null;
+
+function renderDashboard() {
+  const cs = STATE.contratos;
+  const totalMensual = cs.reduce((s, c) => s + canonActual(c), 0);
+  const todosLosPagos = cs.flatMap(c => (c.pagos||[]).map(p => ({...p, inquilino: c.inquilino, cid: c.id, tasaMora: c.tasaMora})));
+  const pendientes = todosLosPagos.filter(p => !p.pagado);
+  const proxVencer = cs.map(c => ({...c, dias: diasParaVencer(c.fin)})).filter(c => c.dias < 365).sort((a,b) => a.dias - b.dias);
+
+  // ── KPIs ──
+  const totalMora = todosLosPagos.filter(p => p.mora).reduce((s,p) => s + (p.mora||0), 0);
+  document.getElementById("kpi-grid").innerHTML = [
+    { label: "Contratos activos", value: cs.length, color: "var(--navy)" },
+    { label: "Ingresos mensuales", value: fmt(totalMensual), color: "var(--green)" },
+    { label: "Cuotas pendientes", value: pendientes.length, color: pendientes.length > 0 ? "var(--red)" : "var(--green)" },
+    { label: "Mora cobrada total", value: fmt(totalMora), color: totalMora > 0 ? "var(--amber)" : "var(--muted)" },
+  ].map(k => `<div class="card kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.value}</div></div>`).join("");
+
+  // ── Mes actual ──
+  const hoy = new Date();
+  const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`;
+  const pagosMesActual = todosLosPagos.filter(p => p.mes === mesActual);
+  const cobradoMes = pagosMesActual.filter(p => p.pagado).reduce((s,p) => s + p.monto, 0);
+  const pendienteMes = cs.reduce((s, c) => {
+    const tienePago = (c.pagos||[]).some(p => p.mes === mesActual && p.pagado);
+    return s + (tienePago ? 0 : canonActual(c));
+  }, 0);
+  const totalEsperado = cobradoMes + pendienteMes;
+  const pct = totalEsperado > 0 ? Math.round(cobradoMes / totalEsperado * 100) : 0;
+
+  document.getElementById("mes-actual-card").innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="card-title" style="margin:0">📅 ${mesLabel(mesActual)} — Estado de cobranza</div>
+      <span class="badge ${pct === 100 ? 'badge-green' : pct > 50 ? 'badge-amber' : 'badge-red'}">${pct}% cobrado</span>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div style="background:var(--green-lt);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--muted)">Cobrado</div>
+        <div style="font-size:20px;font-weight:900;color:var(--green);font-family:monospace">${fmt(cobradoMes)}</div>
+      </div>
+      <div style="background:var(--red-lt);border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--muted)">Pendiente</div>
+        <div style="font-size:20px;font-weight:900;color:var(--red);font-family:monospace">${fmt(pendienteMes)}</div>
+      </div>
+      <div style="background:#F0F4F8;border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:var(--muted)">Esperado total</div>
+        <div style="font-size:20px;font-weight:900;color:var(--navy);font-family:monospace">${fmt(totalEsperado)}</div>
+      </div>
+    </div>
+    <div style="margin-top:12px;background:#E8EEF3;border-radius:20px;height:8px;overflow:hidden">
+      <div style="height:100%;width:${pct}%;background:var(--green);border-radius:20px;transition:width .5s"></div>
+    </div>`;
+
+  // ── Gráfico: Ingresos mensuales ──
+  const mesesMap = {};
+  todosLosPagos.filter(p => p.pagado).forEach(p => {
+    mesesMap[p.mes] = (mesesMap[p.mes] || 0) + p.monto;
+  });
+  const mesesOrdenados = Object.keys(mesesMap).sort();
+  const ingresosData = mesesOrdenados.map(m => mesesMap[m]);
+
+  if (chartIngresos) chartIngresos.destroy();
+  const ctxI = document.getElementById("chart-ingresos").getContext("2d");
+  chartIngresos = new Chart(ctxI, {
+    type: "bar",
+    data: {
+      labels: mesesOrdenados.map(mesLabel),
+      datasets: [{
+        label: "Cobrado ($)",
+        data: ingresosData,
+        backgroundColor: "#3D7A5B",
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmt(ctx.raw) } } },
+      scales: {
+        y: { ticks: { callback: v => fmt(v) }, grid: { color: "#EEE" } },
+        x: { grid: { display: false } }
+      }
+    }
+  });
+
+  // ── Gráfico: Estado de pagos (donut) ──
+  const alDia = todosLosPagos.filter(p => p.pagado && !p.mora).length;
+  const conMora = todosLosPagos.filter(p => p.pagado && p.mora).length;
+  const pend2 = todosLosPagos.filter(p => !p.pagado).length;
+
+  if (chartEstado) chartEstado.destroy();
+  const ctxE = document.getElementById("chart-estado").getContext("2d");
+  chartEstado = new Chart(ctxE, {
+    type: "doughnut",
+    data: {
+      labels: ["Al día", "Con mora", "Pendiente"],
+      datasets: [{ data: [alDia, conMora, pend2], backgroundColor: ["#3D7A5B","#B8820A","#B83228"], borderWidth: 2, borderColor: "#fff" }]
+    },
+    options: {
+      responsive: false, cutout: "65%",
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.label}: ${ctx.raw} pagos` } } }
+    }
+  });
+  document.getElementById("chart-estado-legend").innerHTML = [
+    { color: "#3D7A5B", label: "Al día", val: alDia },
+    { color: "#B8820A", label: "Con mora", val: conMora },
+    { color: "#B83228", label: "Pendiente", val: pend2 },
+  ].map(l => `<div style="display:flex;align-items:center;gap:8px">
+    <div style="width:12px;height:12px;border-radius:3px;background:${l.color};flex-shrink:0"></div>
+    <span>${l.label}: <strong>${l.val}</strong></span>
+  </div>`).join("");
+
+  // ── Gráfico: Canon por contrato ──
+  if (chartCanon) chartCanon.destroy();
+  const ctxC = document.getElementById("chart-canon").getContext("2d");
+  chartCanon = new Chart(ctxC, {
+    type: "bar",
+    data: {
+      labels: cs.map(c => c.inquilino.split(" ")[0] + " " + (c.inquilino.split(" ")[1]||"")),
+      datasets: [{
+        label: "Canon actual",
+        data: cs.map(c => canonActual(c)),
+        backgroundColor: cs.map((_,i) => ["#1B2B3A","#3D7A5B","#B8820A","#B83228","#2E4559","#5A9A7A"][i % 6]),
+        borderRadius: 6,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => fmt(ctx.raw) } } },
+      scales: {
+        x: { ticks: { callback: v => fmt(v) }, grid: { color: "#EEE" } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+
+  // ── Vencimientos con cuenta regresiva ──
+  document.getElementById("vencimientos-card").innerHTML = `
+    <div class="card-title">📅 Vencimientos de contratos</div>
+    ${proxVencer.length === 0
+      ? `<div class="alert alert-green">Sin vencimientos próximos</div>`
+      : proxVencer.map(c => {
+          const color = c.dias < 60 ? "var(--red)" : c.dias < 180 ? "var(--amber)" : "var(--green)";
+          const bg = c.dias < 60 ? "var(--red-lt)" : c.dias < 180 ? "var(--amber-lt)" : "var(--green-lt)";
+          return `<div class="row-item" onclick="abrirDetalle('${c.id}')" style="cursor:pointer">
+            <div>
+              <div style="font-weight:600">${c.inquilino}</div>
+              <div class="muted" style="font-size:12px">${fmtFecha(c.fin)}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:22px;font-weight:900;color:${color};font-family:monospace;line-height:1">${c.dias}</div>
+              <div style="font-size:10px;color:${color};font-weight:700">DÍAS</div>
+            </div>
+          </div>`;
+        }).join("")}`;
+
+  // ── Historial de mora por inquilino ──
+  const moraResumen = cs.map(c => {
+    const pagosConMora = (c.pagos||[]).filter(p => p.mora > 0);
+    const totalMoraC = pagosConMora.reduce((s,p) => s+(p.mora||0), 0);
+    return { inquilino: c.inquilino, id: c.id, cantidad: pagosConMora.length, total: totalMoraC, pagos: pagosConMora };
+  }).filter(x => x.cantidad > 0);
+
+  document.getElementById("mora-card").innerHTML = `
+    <div class="card-title">⏱ Historial de mora por inquilino</div>
+    ${moraResumen.length === 0
+      ? `<div class="alert alert-green">Sin registros de mora ✓</div>`
+      : moraResumen.map(m => `
+        <div class="row-item" onclick="abrirDetalle('${m.id}')" style="cursor:pointer">
+          <div>
+            <div style="font-weight:600">${m.inquilino}</div>
+            <div class="muted" style="font-size:12px">${m.cantidad} pago${m.cantidad>1?'s':''} con mora</div>
+          </div>
+          <div class="mono" style="color:var(--amber)">${fmt(m.total)}</div>
+        </div>`).join("")}`;
+
+  // ── Cuotas pendientes ──
+  document.getElementById("pendientes-card").innerHTML = `
+    <div class="card-title">⚠ Cuotas pendientes de cobro</div>
+    ${pendientes.length === 0
+      ? `<div class="alert alert-green">Todo al día ✓</div>`
+      : pendientes.map(p => `
+        <div class="row-item">
+          <div><div style="font-weight:600">${p.inquilino}</div><div class="muted" style="font-size:12px">${mesLabel(p.mes)}</div></div>
+          <div class="mono" style="color:var(--red)">${fmt(p.monto)}</div>
+        </div>`).join("")}`;
+
+  // ── Próximos ajustes IPC ──
+  document.getElementById("ajustes-card").innerHTML = `
+    <div class="card-title">📈 Próximos ajustes IPC</div>
+    ${cs.map(c => {
+      const prox = proximoAjusteMes(c);
+      const diasAjuste = Math.ceil((new Date(`${prox}-01`) - new Date()) / 86400000);
+      return `<div class="row-item" onclick="abrirDetalle('${c.id}')" style="cursor:pointer">
+        <div>
+          <div style="font-weight:600">${c.inquilino}</div>
+          <div class="muted" style="font-size:12px">${mesLabel(prox)} · en ${diasAjuste}d</div>
+        </div>
+        <div class="mono" style="color:var(--amber)">${fmt(canonActual(c))}</div>
+      </div>`;
+    }).join("") || '<div class="muted">Sin contratos</div>'}`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER: CONTRATOS
+// ══════════════════════════════════════════════════════════════
+function renderContratos() {
+  const cs = STATE.contratos;
+  document.getElementById("contratos-list").innerHTML = cs.length === 0
+    ? `<div class="card" style="text-align:center;color:var(--muted);padding:40px">No hay contratos. Agregá el primero.</div>`
+    : cs.map(c => {
+        const dias = diasParaVencer(c.fin);
+        const pend = (c.pagos||[]).filter(p => !p.pagado).length;
+        return `
+        <div class="card contrato-card">
+          <div class="contrato-header">
+            <div onclick="abrirDetalle('${c.id}')" style="flex:1;cursor:pointer">
+              <div class="contrato-name">${c.inquilino}</div>
+              <div class="contrato-prop">${c.propiedad}</div>
+              <div class="contrato-badges">
+                <span class="badge ${dias < 90 ? 'badge-red' : dias < 180 ? 'badge-amber' : 'badge-green'}">Vence ${fmtFecha(c.fin)}</span>
+                ${pend > 0 ? `<span class="badge badge-red">${pend} cuota${pend>1?'s':''} pendiente${pend>1?'s':''}</span>` : ''}
+                <span class="badge badge-navy">${c.ajusteMeses === "6" ? "Sem." : c.ajusteMeses === "4" ? "Cuatrim." : "Trim."} IPC</span>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+              <div class="contrato-canon" onclick="abrirDetalle('${c.id}')" style="cursor:pointer;text-align:right">
+                <div class="canon-label">Canon actual</div>
+                <div class="canon-value">${fmt(canonActual(c))}</div>
+                <div class="muted" style="font-size:11px">/mes</div>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editarContrato('${c.id}')">✏ Editar</button>
+                <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="event.stopPropagation();pedirEliminar('${c.id}')">🗑 Eliminar</button>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }).join("");
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER: DETALLE
+// ══════════════════════════════════════════════════════════════
+function abrirDetalle(id) {
+  contratoActualId = id;
+  showView("detalle");
+}
+
+function renderDetalle() {
+  const c = STATE.contratos.find(x => x.id === contratoActualId);
+  if (!c) return;
+  document.getElementById("detalle-title").textContent = c.inquilino;
+
+  const ca = canonActual(c);
+  const prox = proximoAjusteMes(c);
+  const dias = diasParaVencer(c.fin);
+
+  document.getElementById("detalle-info").innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="card-title" style="margin:0">Datos del contrato</div>
+      <button class="btn btn-ghost btn-sm" onclick="editarContrato('${c.id}')">✏ Editar</button>
+    </div>
+    ${[
+      ["Propiedad", c.propiedad],
+      ["Inicio", fmtFecha(c.inicio)],
+      ["Vencimiento", fmtFecha(c.fin)],
+      ["Días restantes", `${dias} días`],
+      ["Canon inicial", fmt(c.canonInicial)],
+      ["Canon actual", `<span class="mono" style="color:var(--green)">${fmt(ca)}</span>`],
+      ["Depósito", fmt(c.deposito ?? c.canonInicial)],
+      ["Ajuste", `${c.ajusteMeses === "6" ? "Semestral" : c.ajusteMeses === "4" ? "Cuatrimestral" : "Trimestral"} IPC`],
+      ["Teléfono", c.telefono ? `<a href="https://wa.me/${c.telefono}" target="_blank" style="color:var(--green)">+${c.telefono}</a>` : '—'],
+      ["Tasa mora mensual", c.tasaMora ? `${c.tasaMora}%` : '—'],
+    ].map(([k,v]) => `<div class="row-item"><span class="muted">${k}</span><span style="font-weight:600;text-align:right;max-width:58%">${v}</span></div>`).join("")}
+    <div style="margin-top:14px">
+      <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer" onclick="pedirEliminar('${c.id}')">🗑 Eliminar contrato</button>
+    </div>
+  `;
+
+  document.getElementById("detalle-ajustes").innerHTML = `
+    <div class="card-title">Ajustes IPC aplicados</div>
+    ${(c.ajustes||[]).map((a, i) => `
+      <div class="ajuste-box" style="position:relative">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <div class="ajuste-desde">Desde ${mesLabel(a.desde)}</div>
+            <div class="ajuste-pct">IPC acum.: +${a.porcentaje}%</div>
+            <div class="ajuste-canon">${fmt(a.canon)}</div>
+          </div>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-sm" style="background:rgba(0,0,0,.08);border:none;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer" onclick="editarAjuste('${c.id}', ${i})">✏</button>
+            <button class="btn btn-sm" style="background:rgba(184,50,40,.12);color:var(--red);border:none;border-radius:5px;padding:4px 8px;font-size:11px;cursor:pointer" onclick="eliminarAjuste('${c.id}', ${i})">🗑</button>
+          </div>
+        </div>
+      </div>`).join("") || '<div class="muted" style="font-size:13px">Sin ajustes aún</div>'}
+    <div style="margin-top:12px;background:#F0F4F8;border-radius:8px;padding:12px;font-size:13px">
+      <div class="muted">Próximo ajuste estimado</div>
+      <div style="font-weight:700">${mesLabel(prox)}</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      <button class="btn btn-green btn-sm" onclick="aplicarAjuste('${c.id}')">Calcular y aplicar</button>
+      <button class="btn btn-ghost btn-sm" onclick="agregarAjusteManual('${c.id}')">+ Ajuste manual</button>
+    </div>
+  `;
+
+  const totalCobrado = (c.pagos||[]).filter(p => p.pagado).reduce((s,p) => s+p.monto, 0);
+  const totalPend = (c.pagos||[]).filter(p => !p.pagado).reduce((s,p) => s+p.monto, 0);
+  document.getElementById("detalle-kpis").innerHTML = [
+    { label: "Total cobrado", value: fmt(totalCobrado), color: "var(--green)" },
+    { label: "Pendiente", value: fmt(totalPend), color: "var(--red)" },
+    { label: "Cuotas registradas", value: (c.pagos||[]).length, color: "var(--navy)" },
+  ].map(k => `<div class="card kpi"><div class="kpi-label">${k.label}</div><div class="kpi-value" style="color:${k.color}">${k.value}</div></div>`).join("");
+
+  // ── Conceptos adicionales ──
+  const conceptos = c.conceptos || [];
+  const hoy2 = new Date();
+  const mesActual2 = `${hoy2.getFullYear()}-${String(hoy2.getMonth()+1).padStart(2,"0")}`;
+  document.getElementById("detalle-conceptos").innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="card-title" style="margin:0">📋 Conceptos adicionales</div>
+      <button class="btn btn-ghost btn-sm" onclick="openModalConcepto('${c.id}')">+ Agregar</button>
+    </div>
+    ${conceptos.length === 0
+      ? `<div class="muted" style="font-size:13px">Sin conceptos adicionales. Agregá expensas, tasas, etc.</div>`
+      : conceptos.map((con, i) => {
+          const montoMes = (con.montos||{})[mesActual2];
+          const tipoColor = con.tipo === 'expensas' ? 'badge-navy' : con.tipo === 'impuesto' ? 'badge-amber' : 'badge-green';
+          return `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <div style="font-weight:600;font-size:14px">${con.descripcion}</div>
+              <div style="margin-top:3px"><span class="badge ${tipoColor}">${con.tipo}</span></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="text-align:right">
+                <div style="font-size:11px;color:var(--muted)">${mesLabel(mesActual2)}</div>
+                <div style="font-weight:700;font-family:monospace;color:${montoMes !== undefined ? (montoMes === 0 ? 'var(--muted)' : 'var(--navy)') : 'var(--red)'}">
+                  ${montoMes !== undefined ? (montoMes === 0 ? 'No aplica' : fmt(montoMes)) : '⚠ Sin cargar'}
+                </div>
+              </div>
+              <button onclick="openModalMontoConcepto('${c.id}',${i})" style="background:var(--green-lt);color:var(--green);border:none;border-radius:6px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer">$ Cargar</button>
+              <button onclick="eliminarConcepto('${c.id}',${i})" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 4px">🗑</button>
+            </div>
+          </div>`;
+        }).join("")}
+    ${conceptos.length > 0 ? `
+    <div style="margin-top:12px;background:var(--green-lt);border-radius:8px;padding:12px">
+      <div style="font-size:12px;color:var(--muted)">Total adicionales ${mesLabel(mesActual2)}</div>
+      <div style="font-size:20px;font-weight:900;color:var(--green);font-family:monospace">
+        ${fmt(conceptos.reduce((s,con) => s + ((con.montos||{})[mesActual2] !== undefined ? (con.montos[mesActual2]||0) : 0), 0))}
+      </div>
+    </div>` : ''}
+  `;
+
+  document.getElementById("detalle-pagos").innerHTML = `
+    <div style="margin-bottom:14px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div class="card-title" style="margin:0">Historial de pagos</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-sm" style="background:#25D366;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="openModalWhatsapp('${c.id}')">📱 WhatsApp</button>
+          <button class="btn btn-sm" style="background:var(--amber-lt);color:var(--amber);border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="openModalMora('${c.id}')">⏱ Mora</button>
+          <button class="btn btn-sm btn-primary" onclick="openModalPago('${c.id}')">+ Pago</button>
+          <button class="btn btn-ghost btn-sm" onclick="verCuentaCorriente('${c.id}')">📒 Cta. Corriente</button>
+        </div>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+    <table>
+      <thead><tr><th>Mes</th><th>Alquiler</th><th>Mora</th><th>Fecha</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+        ${[...(c.pagos||[])].reverse().map(p => `
+          <tr>
+            <td style="font-weight:600">${mesLabel(p.mes)}</td>
+            <td class="mono">${fmt(p.monto)}</td>
+            <td class="mono" style="color:var(--amber)">${p.mora ? fmt(p.mora) : '—'}</td>
+            <td class="muted">${fmtFecha(p.fecha)}</td>
+            <td><span class="badge ${p.pagado ? 'badge-green' : 'badge-red'}">${p.pagado ? 'Cobrado' : 'Pendiente'}</span></td>
+            <td style="text-align:right">
+              <button onclick="eliminarPago('${c.id}','${p.mes}')" style="background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:2px 6px" title="Eliminar">🗑</button>
+            </td>
+          </tr>`).join("")}
+      </tbody>
+    </table>
+    </div>
+  `;
+}
+
+// ══════════════════════════════════════════════════════════════
+// ACCIONES — CONCEPTOS ADICIONALES
+// ══════════════════════════════════════════════════════════════
+let conceptoCid = null;
+let conceptoIdx = null;
+
+function openModalConcepto(cid) {
+  conceptoCid = cid;
+  conceptoIdx = null;
+  document.getElementById("modal-concepto-title").textContent = "Agregar concepto adicional";
+  document.getElementById("concepto-desc").value = "";
+  document.getElementById("concepto-tipo").value = "expensas";
+  openModal("modal-concepto");
+}
+
+function guardarConcepto() {
+  const desc = document.getElementById("concepto-desc").value.trim();
+  const tipo = document.getElementById("concepto-tipo").value;
+  if (!desc) { toast("Ingresá una descripción"); return; }
+  const idx = STATE.contratos.findIndex(x => x.id === conceptoCid);
+  if (!STATE.contratos[idx].conceptos) STATE.contratos[idx].conceptos = [];
+  STATE.contratos[idx].conceptos.push({ descripcion: desc, tipo, montos: {} });
+  closeModal("modal-concepto");
+  save();
+  renderDetalle();
+  toast("Concepto agregado ✓");
+}
+
+function eliminarConcepto(cid, i) {
+  const idx = STATE.contratos.findIndex(x => x.id === cid);
+  STATE.contratos[idx].conceptos.splice(i, 1);
+  save();
+  renderDetalle();
+  toast("Concepto eliminado");
+}
+
+function openModalMontoConcepto(cid, i) {
+  conceptoCid = cid;
+  conceptoIdx = i;
+  const c = STATE.contratos.find(x => x.id === cid);
+  const con = c.conceptos[i];
+  document.getElementById("monto-concepto-nombre").textContent = con.descripcion;
+  const hoy = new Date();
+  const mes = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`;
+  document.getElementById("mc-mes").value = mes;
+  document.getElementById("mc-monto").value = (con.montos||{})[mes] || "";
+  openModal("modal-monto-concepto");
+}
+
+function guardarMontoConcepto() {
+  const mes = document.getElementById("mc-mes").value;
+  const monto = parseFloat(document.getElementById("mc-monto").value);
+  if (!mes || isNaN(monto)) { toast("Completá mes y monto"); return; }
+  const idx = STATE.contratos.findIndex(x => x.id === conceptoCid);
+  if (!STATE.contratos[idx].conceptos[conceptoIdx].montos)
+    STATE.contratos[idx].conceptos[conceptoIdx].montos = {};
+  STATE.contratos[idx].conceptos[conceptoIdx].montos[mes] = monto;
+  closeModal("modal-monto-concepto");
+  save();
+  renderDetalle();
+  toast(`${mesLabel(mes)}: ${monto === 0 ? 'No aplica ($0)' : fmt(monto)} guardado ✓`);
+}
+
+// ══════════════════════════════════════════════════════════════
+// ACCIONES — CONTRATOS
+// ══════════════════════════════════════════════════════════════
+let editandoContratoId = null;
+
+function openModalContrato() {
+  editandoContratoId = null;
+  document.getElementById("modal-contrato-title").textContent = "Nuevo contrato";
+  document.getElementById("btn-guardar-contrato").textContent = "Guardar";
+  ["f-inquilino","f-propiedad","f-fin","f-canon","f-telefono","f-tasa"].forEach(id => document.getElementById(id).value = "");
+  document.getElementById("f-inicio").value = new Date().toISOString().slice(0,10);
+  document.getElementById("f-ajuste").value = "3";
+  openModal("modal-contrato");
+}
+
+function editarContrato(cid) {
+  const c = STATE.contratos.find(x => x.id === cid);
+  if (!c) return;
+  editandoContratoId = cid;
+  document.getElementById("modal-contrato-title").textContent = "Editar contrato";
+  document.getElementById("btn-guardar-contrato").textContent = "Guardar cambios";
+  document.getElementById("f-inquilino").value = c.inquilino;
+  document.getElementById("f-propiedad").value = c.propiedad;
+  document.getElementById("f-inicio").value = c.inicio;
+  document.getElementById("f-fin").value = c.fin;
+  document.getElementById("f-canon").value = c.canonInicial;
+  document.getElementById("f-ajuste").value = c.ajusteMeses || "3";
+  document.getElementById("f-telefono").value = c.telefono || "";
+  document.getElementById("f-tasa").value = c.tasaMora || "";
+  openModal("modal-contrato");
+}
+
+// Conceptos base que tienen todos los contratos
+const CONCEPTOS_BASE = [
+  { descripcion: "Expensas", tipo: "expensas", montos: {} },
+  { descripcion: "Inmobiliario API Santa Fe", tipo: "impuesto", montos: {} },
+  { descripcion: "TGI / Tasa Municipal", tipo: "impuesto", montos: {} },
+];
+
+function conceptosIniciales() {
+  return CONCEPTOS_BASE.map(c => ({ ...c, montos: {} }));
+}
+
+// Migrar contratos existentes que no tienen los conceptos base
+function migrarConceptosBase() {
+  let cambios = false;
+  STATE.contratos.forEach((c, idx) => {
+    if (!c.conceptos) {
+      STATE.contratos[idx].conceptos = conceptosIniciales();
+      cambios = true;
+    } else {
+      // Agregar los que falten sin pisar los existentes
+      CONCEPTOS_BASE.forEach(base => {
+        const existe = c.conceptos.some(x => x.descripcion === base.descripcion);
+        if (!existe) {
+          STATE.contratos[idx].conceptos.unshift({ ...base, montos: {} });
+          cambios = true;
+        }
+      });
+    }
+  });
+  if (cambios) save();
+}
+
+function guardarContrato() {
+  const inq = document.getElementById("f-inquilino").value.trim();
+  const prop = document.getElementById("f-propiedad").value.trim();
+  const inicio = document.getElementById("f-inicio").value;
+  const fin = document.getElementById("f-fin").value;
+  const canon = parseFloat(document.getElementById("f-canon").value);
+  const ajuste = document.getElementById("f-ajuste").value;
+  const telefono = document.getElementById("f-telefono").value.trim().replace(/\D/g,"");
+  const tasaMora = parseFloat(document.getElementById("f-tasa").value) || 0;
+  if (!inq || !prop || !inicio || !fin || !canon) { toast("Completá todos los campos"); return; }
+
+  if (editandoContratoId) {
+    const idx = STATE.contratos.findIndex(x => x.id === editandoContratoId);
+    STATE.contratos[idx] = { ...STATE.contratos[idx], inquilino: inq, propiedad: prop, inicio, fin, canonInicial: canon, ajusteMeses: ajuste, telefono, tasaMora };
+    toast("Contrato actualizado ✓");
+  } else {
+    STATE.contratos.push({ id: uid(), inquilino: inq, propiedad: prop, inicio, fin, canonInicial: canon, ajusteMeses: ajuste, telefono, tasaMora, pagos: [], ajustes: [], deposito: canon, conceptos: conceptosIniciales() });
+    toast("Contrato guardado ✓");
+  }
+  closeModal("modal-contrato");
+  save();
+  renderContratos();
+  if (editandoContratoId && contratoActualId === editandoContratoId) renderDetalle();
+}
+
+// ══════════════════════════════════════════════════════════════
+// MORA
+// ══════════════════════════════════════════════════════════════
+let moraCid = null;
+
+function openModalMora(cid) {
+  moraCid = cid;
+  const c = STATE.contratos.find(x => x.id === cid);
+  const ca = canonActual(c);
+  // vencimiento = día 10 del mes corriente
+  const hoy = new Date();
+  const vto = new Date(hoy.getFullYear(), hoy.getMonth(), 10);
+  document.getElementById("mora-vto").value = vto.toISOString().slice(0,10);
+  document.getElementById("mora-pago").value = hoy.toISOString().slice(0,10);
+  document.getElementById("mora-monto").value = ca;
+  document.getElementById("mora-tasa").value = c.tasaMora || "";
+  document.getElementById("mora-resultado").style.display = "none";
+  openModal("modal-mora");
+  calcularMora();
+}
+
+function calcularMora() {
+  const vto = new Date(document.getElementById("mora-vto").value);
+  const pago = new Date(document.getElementById("mora-pago").value);
+  const monto = parseFloat(document.getElementById("mora-monto").value) || 0;
+  const tasaMensual = parseFloat(document.getElementById("mora-tasa").value) || 0;
+  if (!monto || !tasaMensual || isNaN(vto) || isNaN(pago)) return;
+
+  const dias = Math.max(0, Math.ceil((pago - vto) / 86400000));
+  if (dias <= 0) { document.getElementById("mora-resultado").style.display = "none"; return; }
+
+  const tasaDiaria = tasaMensual / 30 / 100;
+  // Interés moratorio: tasa diaria × días × monto
+  const interesNormal = monto * tasaDiaria * Math.min(dias, 30);
+  // Punitorio: doble tasa desde día 31
+  const diasPunit = Math.max(0, dias - 30);
+  const interesPunit = monto * (tasaDiaria * 2) * diasPunit;
+  const total = monto + interesNormal + interesPunit;
+
+  document.getElementById("mora-dias").textContent = `${dias} días`;
+  document.getElementById("mora-tasa-diaria").textContent = `${(tasaDiaria*100).toFixed(4)}% diario`;
+  document.getElementById("mora-interes").textContent = fmt(interesNormal);
+  document.getElementById("mora-punitorio-row").style.display = diasPunit > 0 ? "flex" : "none";
+  document.getElementById("mora-punitorio").textContent = fmt(interesPunit);
+  document.getElementById("mora-total").textContent = fmt(total);
+  document.getElementById("mora-resultado").style.display = "block";
+}
+
+function registrarPagoConMora() {
+  const mes = document.getElementById("mora-vto").value.slice(0,7);
+  const monto = parseFloat(document.getElementById("mora-monto").value);
+  const fecha = document.getElementById("mora-pago").value;
+  const vto = new Date(document.getElementById("mora-vto").value);
+  const pago = new Date(fecha);
+  const dias = Math.max(0, Math.ceil((pago - vto) / 86400000));
+  const tasaMensual = parseFloat(document.getElementById("mora-tasa").value) || 0;
+  const tasaDiaria = tasaMensual / 30 / 100;
+  const interesNormal = monto * tasaDiaria * Math.min(dias, 30);
+  const diasPunit = Math.max(0, dias - 30);
+  const interesPunit = monto * (tasaDiaria * 2) * diasPunit;
+  const mora = Math.round(interesNormal + interesPunit);
+
+  const idx = STATE.contratos.findIndex(x => x.id === moraCid);
+  const pagos = STATE.contratos[idx].pagos.filter(p => p.mes !== mes);
+  pagos.push({ mes, monto, mora, pagado: true, fecha, diasMora: dias });
+  STATE.contratos[idx].pagos = pagos;
+  closeModal("modal-mora");
+  save();
+  renderDetalle();
+  toast(`Pago registrado con mora de ${fmt(mora)} ✓`);
+}
+
+// ══════════════════════════════════════════════════════════════
+// WHATSAPP
+// ══════════════════════════════════════════════════════════════
+let waCid = null;
+
+function openModalWhatsapp(cid) {
+  waCid = cid;
+  const c = STATE.contratos.find(x => x.id === cid);
+  const ca = canonActual(c);
+  // Mes siguiente
+  const hoy = new Date();
+  const proxMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 1);
+  const mesStr = `${proxMes.getFullYear()}-${String(proxMes.getMonth()+1).padStart(2,"0")}`;
+
+  document.getElementById("wa-telefono").value = c.telefono || "";
+  document.getElementById("wa-mes").value = mesStr;
+
+  const mensaje = generarMensajeWA(c, mesStr, ca);
+  document.getElementById("wa-mensaje").value = mensaje;
+  openModal("modal-whatsapp");
+}
+
+function generarMensajeWA(c, mesStr, canon) {
+  const nombreCorto = c.inquilino.split(" ")[0];
+  const [y, m] = mesStr.split("-");
+  const nombres = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  const mesNombre = nombres[parseInt(m)-1];
+
+  // Conceptos adicionales del mes
+  const conceptos = (c.conceptos||[]).filter(con => (con.montos||{})[mesStr]);
+  const totalAdicionales = conceptos.reduce((s, con) => s + (con.montos[mesStr]||0), 0);
+  const totalGeneral = canon + totalAdicionales;
+
+  let detalle = `• Alquiler:     ${fmt(canon)}`;
+  conceptos.forEach(con => {
+    const label = con.descripcion.padEnd(14);
+    detalle += `\n• ${label} ${fmt(con.montos[mesStr])}`;
+  });
+  if (conceptos.length > 0) {
+    detalle += `\n${"─".repeat(35)}\n• TOTAL:        ${fmt(totalGeneral)}`;
+  }
+
+  return `Hola ${nombreCorto}! 👋\n\nLiquidación *${mesNombre} ${y}*:\n\n${detalle}\n\nVencimiento: 10 de ${mesNombre} de ${y}.\n\nSaludos!`;
+}
+
+document.getElementById("wa-mes").addEventListener?.("change", function() {
+  if (!waCid) return;
+  const c = STATE.contratos.find(x => x.id === waCid);
+  document.getElementById("wa-mensaje").value = generarMensajeWA(c, this.value, canonActual(c));
+});
+
+function abrirWhatsapp() {
+  const tel = document.getElementById("wa-telefono").value.trim().replace(/\D/g,"");
+  const msg = document.getElementById("wa-mensaje").value.trim();
+  if (!tel) { toast("Ingresá el teléfono del inquilino"); return; }
+  const url = `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
+  window.open(url, "_blank");
+  closeModal("modal-whatsapp");
+}
+
+let eliminandoContratoId = null;
+function pedirEliminar(cid) {
+  eliminandoContratoId = cid;
+  openModal("modal-eliminar");
+}
+function confirmarEliminar() {
+  STATE.contratos = STATE.contratos.filter(x => x.id !== eliminandoContratoId);
+  closeModal("modal-eliminar");
+  save();
+  toast("Contrato eliminado");
+  showView("contratos");
+}
+
+// ══════════════════════════════════════════════════════════════
+// ACCIONES — PAGOS
+// ══════════════════════════════════════════════════════════════
+let pagoContratoId = null;
+function openModalPago(cid) {
+  pagoContratoId = cid;
+  const c = STATE.contratos.find(x => x.id === cid);
+  document.getElementById("p-monto").value = canonActual(c);
+  document.getElementById("p-fecha").value = new Date().toISOString().slice(0,10);
+  document.getElementById("p-mes").value = "";
+  openModal("modal-pago");
+}
+
+function guardarPago() {
+  const mes = document.getElementById("p-mes").value;
+  const monto = parseFloat(document.getElementById("p-monto").value);
+  const fecha = document.getElementById("p-fecha").value;
+  if (!mes || !monto) { toast("Completá mes y monto"); return; }
+  const idx = STATE.contratos.findIndex(x => x.id === pagoContratoId);
+  const pagos = STATE.contratos[idx].pagos.filter(p => p.mes !== mes);
+  pagos.push({ mes, monto, pagado: true, fecha });
+  STATE.contratos[idx].pagos = pagos;
+  closeModal("modal-pago");
+  save();
+  renderDetalle();
+  toast("Pago registrado ✓");
+}
+
+function eliminarPago(cid, mes) {
+  const idx = STATE.contratos.findIndex(x => x.id === cid);
+  STATE.contratos[idx].pagos = STATE.contratos[idx].pagos.filter(p => p.mes !== mes);
+  save();
+  renderDetalle();
+  toast("Pago eliminado");
+}
+
+// ══════════════════════════════════════════════════════════════
+// ACCIONES — AJUSTES IPC
+// ══════════════════════════════════════════════════════════════
+let editandoAjusteIdx = null;
+let editandoAjusteCid = null;
+
+function editarAjuste(cid, idx) {
+  const c = STATE.contratos.find(x => x.id === cid);
+  const a = c.ajustes[idx];
+  editandoAjusteCid = cid;
+  editandoAjusteIdx = idx;
+  document.getElementById("ea-desde").value = a.desde;
+  document.getElementById("ea-pct").value = a.porcentaje;
+  document.getElementById("ea-canon").value = a.canon;
+  openModal("modal-editar-ajuste");
+}
+
+function agregarAjusteManual(cid) {
+  editandoAjusteCid = cid;
+  editandoAjusteIdx = null;
+  document.getElementById("ea-desde").value = proximoAjusteMes(STATE.contratos.find(x => x.id === cid));
+  document.getElementById("ea-pct").value = "";
+  document.getElementById("ea-canon").value = "";
+  openModal("modal-editar-ajuste");
+}
+
+function guardarAjusteEditado() {
+  const desde = document.getElementById("ea-desde").value;
+  const pct = parseFloat(document.getElementById("ea-pct").value) || 0;
+  const canon = parseFloat(document.getElementById("ea-canon").value);
+  if (!desde || !canon) { toast("Completá desde y canon"); return; }
+  const idx = STATE.contratos.findIndex(x => x.id === editandoAjusteCid);
+  const ajuste = { desde, porcentaje: pct, canon };
+  if (editandoAjusteIdx !== null) {
+    STATE.contratos[idx].ajustes[editandoAjusteIdx] = ajuste;
+    toast("Ajuste actualizado ✓");
+  } else {
+    STATE.contratos[idx].ajustes = [...(STATE.contratos[idx].ajustes||[]), ajuste];
+    toast("Ajuste agregado ✓");
+  }
+  closeModal("modal-editar-ajuste");
+  save();
+  renderDetalle();
+}
+
+function eliminarAjuste(cid, ajIdx) {
+  const idx = STATE.contratos.findIndex(x => x.id === cid);
+  STATE.contratos[idx].ajustes.splice(ajIdx, 1);
+  save();
+  renderDetalle();
+  toast("Ajuste eliminado");
+}
+
+function aplicarAjuste(cid) {
+  const idx = STATE.contratos.findIndex(x => x.id === cid);
+  const c = STATE.contratos[idx];
+  const prox = proximoAjusteMes(c);
+  const base = c.ajustes?.at(-1)?.desde ?? c.inicio.slice(0,7);
+  const acum = calcIpcAcumulado(base, prox);
+  const nuevoCan = Math.round(canonActual(c) * (1 + acum));
+  const ajuste = { desde: prox, porcentaje: +(acum * 100).toFixed(2), canon: nuevoCan };
+  STATE.contratos[idx].ajustes = [...(c.ajustes||[]), ajuste];
+  save();
+  renderDetalle();
+  toast(`Ajuste aplicado: ${fmt(nuevoCan)} desde ${mesLabel(prox)}`);
+}
+
+// IPC
+function openModalIPC() { openModal("modal-ipc"); }
+function guardarIPC() {
+  const mes = document.getElementById("ipc-mes").value;
+  const val = parseFloat(document.getElementById("ipc-val").value);
+  if (!mes || isNaN(val)) { toast("Completá los datos"); return; }
+  STATE.ipc[mes] = val;
+  closeModal("modal-ipc");
+  save();
+  renderIpcTabla();
+  toast(`IPC ${mesLabel(mes)}: ${val}% guardado ✓`);
+}
+
+function renderIpcTabla() {
+  document.getElementById("ipc-tabla").innerHTML = Object.entries(STATE.ipc)
+    .sort(([a],[b]) => a.localeCompare(b))
+    .map(([m, v]) => `<div style="background:#F0F4F8;border-radius:6px;padding:5px 10px;font-size:12px"><strong>${mesLabel(m)}</strong>: ${v}%</div>`)
+    .join("");
+}
+
+function calcularIPC() {
+  const base = parseFloat(document.getElementById("calc-canon").value);
+  const desde = document.getElementById("calc-desde").value;
+  const hasta = document.getElementById("calc-hasta").value;
+  if (!base || !desde || !hasta) { toast("Completá los campos"); return; }
+  const acum = calcIpcAcumulado(desde, hasta);
+  const nuevo = Math.round(base * (1 + acum));
+  document.getElementById("calc-pct").textContent = `+${(acum*100).toFixed(2)}%`;
+  document.getElementById("calc-nuevo").textContent = fmt(nuevo);
+  document.getElementById("calc-resultado").style.display = "block";
+}
+
+// ══════════════════════════════════════════════════════════════
+// EXPORTAR CSV
+// ══════════════════════════════════════════════════════════════
+function csvRow(arr) {
+  return arr.map(v => {
+    const s = String(v ?? "").replace(/"/g, '""');
+    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s}"` : s;
+  }).join(",");
+}
+
+function exportarCSV() {
+  const expContratos = document.getElementById("exp-contratos").checked;
+  const expPagos = document.getElementById("exp-pagos").checked;
+  const expAjustes = document.getElementById("exp-ajustes").checked;
+  const expMora = document.getElementById("exp-mora").checked;
+
+  let contenido = "\uFEFF"; // BOM para que Sheets/Excel lean bien el UTF-8
+  const SEP = "\n\n";
+
+  if (expContratos) {
+    contenido += "CONTRATOS\n";
+    contenido += csvRow(["Inquilino","Propiedad","Inicio","Vencimiento","Días restantes","Canon inicial","Canon actual","Ajuste","Teléfono","Tasa mora %","Depósito"]) + "\n";
+    STATE.contratos.forEach(c => {
+      contenido += csvRow([
+        c.inquilino,
+        c.propiedad,
+        fmtFecha(c.inicio),
+        fmtFecha(c.fin),
+        diasParaVencer(c.fin),
+        c.canonInicial,
+        canonActual(c),
+        c.ajusteMeses === "6" ? "Semestral IPC" : c.ajusteMeses === "4" ? "Cuatrimestral IPC" : "Trimestral IPC",
+        c.telefono || "",
+        c.tasaMora || "",
+        c.deposito || c.canonInicial,
+      ]) + "\n";
+    });
+    contenido += SEP;
+  }
+
+  if (expPagos) {
+    contenido += "HISTORIAL DE PAGOS\n";
+    contenido += csvRow(["Inquilino","Mes","Alquiler","Mora","Total cobrado","Fecha de pago","Estado","Días de mora"]) + "\n";
+    STATE.contratos.forEach(c => {
+      (c.pagos||[]).sort((a,b) => a.mes.localeCompare(b.mes)).forEach(p => {
+        contenido += csvRow([
+          c.inquilino,
+          mesLabel(p.mes),
+          p.monto,
+          p.mora || 0,
+          p.monto + (p.mora || 0),
+          fmtFecha(p.fecha),
+          p.pagado ? "Cobrado" : "Pendiente",
+          p.diasMora || 0,
+        ]) + "\n";
+      });
+    });
+    contenido += SEP;
+  }
+
+  if (expAjustes) {
+    contenido += "AJUSTES IPC APLICADOS\n";
+    contenido += csvRow(["Inquilino","Desde","IPC acumulado %","Canon resultante"]) + "\n";
+    STATE.contratos.forEach(c => {
+      if (!c.ajustes?.length) {
+        contenido += csvRow([c.inquilino, "Sin ajustes", "", ""]) + "\n";
+      } else {
+        c.ajustes.forEach(a => {
+          contenido += csvRow([c.inquilino, mesLabel(a.desde), a.porcentaje, a.canon]) + "\n";
+        });
+      }
+    });
+    contenido += SEP;
+  }
+
+  if (expMora) {
+    contenido += "RESUMEN DE MORA POR INQUILINO\n";
+    contenido += csvRow(["Inquilino","Pagos con mora","Total mora cobrada","Promedio mora por pago"]) + "\n";
+    STATE.contratos.forEach(c => {
+      const pagosConMora = (c.pagos||[]).filter(p => p.mora > 0);
+      const totalMoraC = pagosConMora.reduce((s,p) => s+(p.mora||0), 0);
+      const promedio = pagosConMora.length > 0 ? Math.round(totalMoraC / pagosConMora.length) : 0;
+      contenido += csvRow([c.inquilino, pagosConMora.length, totalMoraC, promedio]) + "\n";
+    });
+    contenido += SEP;
+  }
+
+  // IPC cargados siempre
+  contenido += "IPC INDEC CARGADOS\n";
+  contenido += csvRow(["Mes","Variación %"]) + "\n";
+  Object.entries(STATE.ipc).sort(([a],[b]) => a.localeCompare(b)).forEach(([m,v]) => {
+    contenido += csvRow([mesLabel(m), v]) + "\n";
+  });
+
+  // Descargar
+  const hoy = new Date().toISOString().slice(0,10);
+  const blob = new Blob([contenido], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `rental-adm-export-${hoy}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  closeModal("modal-exportar");
+  toast("CSV descargado ✓ — abrilo en Google Sheets");
+}
+
+// ══════════════════════════════════════════════════════════════
+// MODAL HELPERS
+// ══════════════════════════════════════════════════════════════
+function openModal(id) { document.getElementById(id).classList.add("open"); }
+function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+document.querySelectorAll(".modal-bg").forEach(m => m.addEventListener("click", e => { if (e.target === m) m.classList.remove("open"); }));
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+function renderAll() { migrarConceptosBase(); renderDashboard(); renderContratos(); renderIpcTabla(); }
+
+window.addEventListener("load", () => {
+  const cid = getClientId();
+  if (!cid) {
+    document.getElementById("setup-screen").style.display = "block";
+    document.getElementById("content").style.display = "none";
+  } else if (cid === "offline") {
+    loadLocalData();
+    renderAll();
+  } else {
+    initGoogleAuth();
+    // Auto-intentar token silencioso
+    setTimeout(() => { if (tokenClient) tokenClient.requestAccessToken({ prompt: "" }); }, 1000);
+  }
+});
+</script>
+</body>
+</html>
