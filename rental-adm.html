@@ -68,6 +68,10 @@
   .badge-green { background: var(--green-lt); color: var(--green); }
   .badge-red { background: var(--red-lt); color: var(--red); }
   .badge-amber { background: var(--amber-lt); color: var(--amber); }
+  .badge-gray { background: #F0F0F0; color: #888; }
+  .historial-sep { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--muted); letter-spacing: .06em; padding: 18px 0 8px; }
+  .contrato-card.vencido { opacity: .75; }
+  .contrato-card.finalizado { opacity: .6; }
   .badge-navy { background: #E6ECF1; color: var(--navy); }
 
   /* ── Buttons ── */
@@ -419,6 +423,34 @@
   </div>
 </div>
 
+<!-- Modal: Prorrogar contrato -->
+<div id="modal-prorrogar" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">🔄 Prorrogar contrato</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Extendé la fecha de vencimiento del contrato actual.</p>
+    <div class="form-group">
+      <label class="form-label">Nueva fecha de vencimiento</label>
+      <input type="date" id="prorrogar-fin" class="form-input">
+    </div>
+    <div class="grid-2" style="margin-top:16px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-prorrogar')">Cancelar</button>
+      <button class="btn btn-green" onclick="confirmarProrrogar()">Guardar prórroga</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Confirmar finalizar contrato -->
+<div id="modal-finalizar" class="modal-bg">
+  <div class="modal">
+    <div class="modal-title">🔒 Finalizar contrato</div>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:20px">El contrato pasará al historial como <strong>Finalizado</strong>. Podrás seguir consultándolo pero no editarlo. ¿Confirmás?</p>
+    <div class="grid-2">
+      <button class="btn btn-ghost" onclick="closeModal('modal-finalizar')">Cancelar</button>
+      <button class="btn btn-red" onclick="confirmarFinalizar()">Sí, finalizar</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal: Confirmar eliminar contrato -->
 <div id="modal-eliminar" class="modal-bg">
   <div class="modal">
@@ -652,6 +684,11 @@ function mesLabel(s) {
 }
 function diasParaVencer(fin) {
   return Math.ceil((new Date(fin) - new Date()) / 86400000);
+}
+function estadoContrato(c) {
+  if (c.estadoManual === "finalizado") return "finalizado";
+  if (c.estadoManual === "activo") return "activo";
+  return diasParaVencer(c.fin) < 0 ? "vencido" : "activo";
 }
 function canonActual(c) {
   return c.ajustes?.at(-1)?.canon ?? c.canonInicial;
@@ -951,15 +988,16 @@ let chartIngresos = null, chartEstado = null, chartCanon = null;
 
 function renderDashboard() {
   const cs = STATE.contratos;
-  const totalMensual = cs.reduce((s, c) => s + canonActual(c), 0);
+  const csActivos = cs.filter(c => estadoContrato(c) === "activo");
+  const totalMensual = csActivos.reduce((s, c) => s + canonActual(c), 0);
   const todosLosPagos = cs.flatMap(c => (c.pagos||[]).map(p => ({...p, inquilino: c.inquilino, cid: c.id, tasaMora: c.tasaMora})));
   const pendientes = todosLosPagos.filter(p => !p.pagado);
-  const proxVencer = cs.map(c => ({...c, dias: diasParaVencer(c.fin)})).filter(c => c.dias < 365).sort((a,b) => a.dias - b.dias);
+  const proxVencer = csActivos.map(c => ({...c, dias: diasParaVencer(c.fin)})).filter(c => c.dias < 365).sort((a,b) => a.dias - b.dias);
 
   // ── KPIs ──
   const totalMora = todosLosPagos.filter(p => p.mora).reduce((s,p) => s + (p.mora||0), 0);
   document.getElementById("kpi-grid").innerHTML = [
-    { label: "Contratos activos", value: cs.length, color: "var(--navy)" },
+    { label: "Contratos activos", value: csActivos.length, color: "var(--navy)" },
     { label: "Ingresos mensuales", value: fmt(totalMensual), color: "var(--green)" },
     { label: "Cuotas pendientes", value: pendientes.length, color: pendientes.length > 0 ? "var(--red)" : "var(--green)" },
     { label: "Mora cobrada total", value: fmt(totalMora), color: totalMora > 0 ? "var(--amber)" : "var(--muted)" },
@@ -970,7 +1008,7 @@ function renderDashboard() {
   const mesActual = `${hoy.getFullYear()}-${String(hoy.getMonth()+1).padStart(2,"0")}`;
   const pagosMesActual = todosLosPagos.filter(p => p.mes === mesActual);
   const cobradoMes = pagosMesActual.filter(p => p.pagado).reduce((s,p) => s + p.monto, 0);
-  const pendienteMes = cs.reduce((s, c) => {
+  const pendienteMes = csActivos.reduce((s, c) => {
     const tienePago = (c.pagos||[]).some(p => p.mes === mesActual && p.pagado);
     return s + (tienePago ? 0 : canonActual(c));
   }, 0);
@@ -1155,39 +1193,58 @@ function renderDashboard() {
 // ══════════════════════════════════════════════════════════════
 // RENDER: CONTRATOS
 // ══════════════════════════════════════════════════════════════
+function cardContrato(c) {
+  const est = estadoContrato(c);
+  const dias = diasParaVencer(c.fin);
+  const pend = (c.pagos||[]).filter(p => !p.pagado).length;
+  const venceBadge = est === "finalizado"
+    ? `<span class="badge badge-gray">Finalizado ${fmtFecha(c.fin)}</span>`
+    : est === "vencido"
+    ? `<span class="badge badge-red">Venció ${fmtFecha(c.fin)}</span>`
+    : `<span class="badge ${dias < 90 ? 'badge-red' : dias < 180 ? 'badge-amber' : 'badge-green'}">Vence ${fmtFecha(c.fin)}</span>`;
+  return `
+  <div class="card contrato-card ${est !== 'activo' ? est : ''}">
+    <div class="contrato-header">
+      <div onclick="abrirDetalle('${c.id}')" style="flex:1;cursor:pointer">
+        <div class="contrato-name">${c.inquilino}</div>
+        <div class="contrato-prop">${c.propiedad}</div>
+        <div class="contrato-badges">
+          ${venceBadge}
+          ${pend > 0 && est === 'activo' ? `<span class="badge badge-red">${pend} cuota${pend>1?'s':''} pendiente${pend>1?'s':''}</span>` : ''}
+          <span class="badge badge-navy">${c.ajusteMeses === "6" ? "Sem." : c.ajusteMeses === "4" ? "Cuatrim." : "Trim."} IPC</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+        <div class="contrato-canon" onclick="abrirDetalle('${c.id}')" style="cursor:pointer;text-align:right">
+          <div class="canon-label">Canon actual</div>
+          <div class="canon-value">${fmt(canonActual(c))}</div>
+          <div class="muted" style="font-size:11px">/mes</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          ${est === 'activo' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editarContrato('${c.id}')">✏ Editar</button>` : ''}
+          ${est !== 'activo' ? `<button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();abrirProrrogar('${c.id}')">🔄 Prorrogar</button>` : ''}
+          <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="event.stopPropagation();pedirEliminar('${c.id}')">🗑</button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderContratos() {
   const cs = STATE.contratos;
-  document.getElementById("contratos-list").innerHTML = cs.length === 0
-    ? `<div class="card" style="text-align:center;color:var(--muted);padding:40px">No hay contratos. Agregá el primero.</div>`
-    : cs.map(c => {
-        const dias = diasParaVencer(c.fin);
-        const pend = (c.pagos||[]).filter(p => !p.pagado).length;
-        return `
-        <div class="card contrato-card">
-          <div class="contrato-header">
-            <div onclick="abrirDetalle('${c.id}')" style="flex:1;cursor:pointer">
-              <div class="contrato-name">${c.inquilino}</div>
-              <div class="contrato-prop">${c.propiedad}</div>
-              <div class="contrato-badges">
-                <span class="badge ${dias < 90 ? 'badge-red' : dias < 180 ? 'badge-amber' : 'badge-green'}">Vence ${fmtFecha(c.fin)}</span>
-                ${pend > 0 ? `<span class="badge badge-red">${pend} cuota${pend>1?'s':''} pendiente${pend>1?'s':''}</span>` : ''}
-                <span class="badge badge-navy">${c.ajusteMeses === "6" ? "Sem." : c.ajusteMeses === "4" ? "Cuatrim." : "Trim."} IPC</span>
-              </div>
-            </div>
-            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
-              <div class="contrato-canon" onclick="abrirDetalle('${c.id}')" style="cursor:pointer;text-align:right">
-                <div class="canon-label">Canon actual</div>
-                <div class="canon-value">${fmt(canonActual(c))}</div>
-                <div class="muted" style="font-size:11px">/mes</div>
-              </div>
-              <div style="display:flex;gap:6px">
-                <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editarContrato('${c.id}')">✏ Editar</button>
-                <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer" onclick="event.stopPropagation();pedirEliminar('${c.id}')">🗑 Eliminar</button>
-              </div>
-            </div>
-          </div>
-        </div>`;
-      }).join("");
+  if (cs.length === 0) {
+    document.getElementById("contratos-list").innerHTML =
+      `<div class="card" style="text-align:center;color:var(--muted);padding:40px">No hay contratos. Agregá el primero.</div>`;
+    return;
+  }
+  const activos = cs.filter(c => estadoContrato(c) === "activo");
+  const historial = cs.filter(c => estadoContrato(c) !== "activo");
+  let html = activos.map(cardContrato).join("");
+  if (historial.length > 0) {
+    html += `<div class="historial-sep">📁 Historial (${historial.length})</div>`;
+    html += historial.map(cardContrato).join("");
+  }
+  document.getElementById("contratos-list").innerHTML = html;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -1207,10 +1264,14 @@ function renderDetalle() {
   const prox = proximoAjusteMes(c);
   const dias = diasParaVencer(c.fin);
 
+  const est = estadoContrato(c);
   document.getElementById("detalle-info").innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div class="card-title" style="margin:0">Datos del contrato</div>
-      <button class="btn btn-ghost btn-sm" onclick="editarContrato('${c.id}')">✏ Editar</button>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="badge ${est==='activo'?'badge-green':est==='vencido'?'badge-red':'badge-gray'}">${est==='activo'?'Activo':est==='vencido'?'Vencido':'Finalizado'}</span>
+        ${est === 'activo' ? `<button class="btn btn-ghost btn-sm" onclick="editarContrato('${c.id}')">✏ Editar</button>` : ''}
+      </div>
     </div>
     ${[
       ["Propiedad", c.propiedad],
@@ -1224,8 +1285,15 @@ function renderDetalle() {
       ["Teléfono", c.telefono ? `<a href="https://wa.me/${c.telefono}" target="_blank" style="color:var(--green)">+${c.telefono}</a>` : '—'],
       ["Tasa mora mensual", c.tasaMora ? `${c.tasaMora}%` : '—'],
     ].map(([k,v]) => `<div class="row-item"><span class="muted">${k}</span><span style="font-weight:600;text-align:right;max-width:58%">${v}</span></div>`).join("")}
-    <div style="margin-top:14px">
-      <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer" onclick="pedirEliminar('${c.id}')">🗑 Eliminar contrato</button>
+    <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
+      ${est !== 'activo' ? `
+        <button class="btn btn-ghost btn-sm" onclick="abrirProrrogar('${c.id}')">🔄 Prorrogar</button>
+        <button class="btn btn-ghost btn-sm" style="color:var(--green);border-color:var(--green)" onclick="reactivarContrato('${c.id}')">✅ Reactivar</button>
+      ` : `
+        <button class="btn btn-sm" style="background:rgba(99,102,241,.1);color:#4F46E5;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer" onclick="abrirProrrogar('${c.id}')">🔄 Prorrogar</button>
+        <button class="btn btn-sm" style="background:rgba(245,158,11,.1);color:#B45309;border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer" onclick="pedirFinalizar('${c.id}')">🔒 Finalizar</button>
+      `}
+      <button class="btn btn-sm" style="background:var(--red-lt);color:var(--red);border:none;border-radius:6px;padding:6px 14px;font-size:12px;font-weight:700;cursor:pointer" onclick="pedirEliminar('${c.id}')">🗑 Eliminar</button>
     </div>
   `;
 
@@ -1430,6 +1498,60 @@ function editarContrato(cid) {
   document.getElementById("f-telefono").value = c.telefono || "";
   document.getElementById("f-tasa").value = c.tasaMora || "";
   openModal("modal-contrato");
+}
+
+// ══════════════════════════════════════════════════════════════
+// PRORROGAR / FINALIZAR / REACTIVAR
+// ══════════════════════════════════════════════════════════════
+let prorrogarCid = null;
+let finalizarCid = null;
+
+function abrirProrrogar(cid) {
+  prorrogarCid = cid;
+  const c = STATE.contratos.find(x => x.id === cid);
+  // Sugerir 1 año más desde la fecha de fin actual
+  const finActual = new Date(c.fin);
+  finActual.setFullYear(finActual.getFullYear() + 1);
+  document.getElementById("prorrogar-fin").value = finActual.toISOString().slice(0,10);
+  openModal("modal-prorrogar");
+}
+
+function confirmarProrrogar() {
+  const nuevaFin = document.getElementById("prorrogar-fin").value;
+  if (!nuevaFin) { toast("Elegí una fecha"); return; }
+  const idx = STATE.contratos.findIndex(x => x.id === prorrogarCid);
+  STATE.contratos[idx].fin = nuevaFin;
+  // Limpiar estadoManual si había uno manual para que recalcule automático
+  delete STATE.contratos[idx].estadoManual;
+  closeModal("modal-prorrogar");
+  save();
+  renderDetalle();
+  renderContratos();
+  toast("Contrato prorrogado hasta " + fmtFecha(nuevaFin) + " ✓");
+}
+
+function pedirFinalizar(cid) {
+  finalizarCid = cid;
+  openModal("modal-finalizar");
+}
+
+function confirmarFinalizar() {
+  const idx = STATE.contratos.findIndex(x => x.id === finalizarCid);
+  STATE.contratos[idx].estadoManual = "finalizado";
+  closeModal("modal-finalizar");
+  save();
+  renderDetalle();
+  renderContratos();
+  toast("Contrato finalizado y movido al historial ✓");
+}
+
+function reactivarContrato(cid) {
+  const idx = STATE.contratos.findIndex(x => x.id === cid);
+  delete STATE.contratos[idx].estadoManual;
+  save();
+  renderDetalle();
+  renderContratos();
+  toast("Contrato reactivado ✓");
 }
 
 // Conceptos base que tienen todos los contratos
